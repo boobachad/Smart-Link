@@ -26,6 +26,7 @@ function Otp() {
     const handleSubmit = (e) => {
         e.preventDefault();
         const enteredOtp = otp.join("");
+        localStorage.setItem("number", number);
         router.push("/home");
     };
 
