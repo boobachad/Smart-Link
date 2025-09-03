@@ -1,0 +1,13 @@
+{
+  "profile": {
+    "account": "Account",
+    "busStopsNearMe": "Bus stops near me",
+    "changeLanguage": "Change language",
+    "sos": "SOS",
+    "customerSupport": "Customer support",
+    "logout": "Log Out"
+  },
+  "language": {
+    "punjabi": "Punjabi"
+  }
+}
