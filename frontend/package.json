@@ -12,6 +12,7 @@
     "@radix-ui/react-label": "^2.1.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "firebase": "^12.2.1",
     "i18next": "^25.4.2",
     "leaflet": "^1.9.4",
     "leaflet-routing-machine": "^3.2.12",
@@ -19,6 +20,7 @@
     "next": "15.5.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-firebase-hooks": "^5.1.1",
     "react-i18next": "^15.7.3",
     "react-leaflet": "^5.0.0",
     "tailwind-merge": "^3.3.1"
