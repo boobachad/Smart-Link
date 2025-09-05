@@ -1,17 +1,7 @@
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import { Bus, ChartColumn, Route, BusFront, MapPin } from 'lucide-react';
+import React from 'react';
+import { Bus } from 'lucide-react';
 
 function SideNavbar() {
-    const [activeSection, setActiveSection] = useState('Dashboard');
-
-    const sections = [
-        { name: 'Dashboard', icon: <ChartColumn size={20} /> },
-        { name: 'Routes', icon: <Route size={20} /> },
-        { name: 'Buses', icon: <BusFront size={20} /> },
-        { name: 'Station', icon: <MapPin size={20} /> },
-    ];
 
     return (
         <div className='max-w-1/3 h-screen border border-gray-200 bg-gray-100 flex flex-col'>
