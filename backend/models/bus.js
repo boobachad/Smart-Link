@@ -121,10 +121,6 @@ const busSchema = new mongoose.Schema({
     frequency: {
       type: Number, // minutes between trips
       default: 15
-    },
-    isActive: {
-      type: Boolean,
-      default: true
     }
   },
   
@@ -169,26 +165,6 @@ const busSchema = new mongoose.Schema({
     }
   },
   
-  // Additional features and amenities
-  features: {
-    hasWifi: {
-      type: Boolean,
-      default: false
-    },
-    hasAC: {
-      type: Boolean,
-      default: true
-    },
-    hasWheelchairAccess: {
-      type: Boolean,
-      default: false
-    },
-    hasUSBCharging: {
-      type: Boolean,
-      default: false
-    }
-  },
-  
   // Operational data
   operationalData: {
     totalTrips: {
@@ -219,17 +195,6 @@ const busSchema = new mongoose.Schema({
 // Virtual for checking if bus is currently running
 busSchema.virtual('isRunning').get(function() {
   return this.currentStatus === 'active' && this.tracking.isOnline;
-});
-
-// Virtual for occupancy percentage
-busSchema.virtual('occupancyPercentage').get(function() {
-  if (this.passengerCount.maxCapacity === 0) return 0;
-  return Math.round((this.passengerCount.current / this.passengerCount.maxCapacity) * 100);
-});
-
-// Virtual for checking if bus is at capacity
-busSchema.virtual('isAtCapacity').get(function() {
-  return this.passengerCount.current >= this.passengerCount.maxCapacity;
 });
 
 // Pre-save middleware to update lastSeen when location is updated
@@ -277,15 +242,6 @@ busSchema.methods.updateLocation = function(latitude, longitude, heading, speed)
   return this.save();
 };
 
-// Instance method to update passenger count
-busSchema.methods.updatePassengerCount = function(count) {
-  if (count < 0 || count > this.passengerCount.maxCapacity) {
-    throw new Error('Invalid passenger count');
-  }
-  this.passengerCount.current = count;
-  return this.save();
-};
-
 // Instance method to start trip
 busSchema.methods.startTrip = function() {
   this.currentStatus = 'active';
@@ -297,7 +253,6 @@ busSchema.methods.startTrip = function() {
 // Instance method to end trip
 busSchema.methods.endTrip = function() {
   this.currentStatus = 'inactive';
-  this.passengerCount.current = 0;
   this.operationalData.totalTrips += 1;
   return this.save();
 };
