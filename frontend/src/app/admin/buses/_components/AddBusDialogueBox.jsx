@@ -1,17 +1,20 @@
 "use client";
 import React, { useState } from 'react'
 import { X } from 'lucide-react';
+import { SelectBus } from '@/components/selectBus';
+import { toast } from "sonner";
 
 function AddBusDialogueBox({ isOpen, onClose }) {
 
     const [newBus, setNewBus] = useState({
-        number:'',
+        busNumber: '',
+        routeID: '',
         model:'',
-        capacity:'',
-        year:'',
-        routes:''
+        year: '',
+        capacity: '',
+        licensePlate: '',
+        currentStatus: 'active',
     })
-
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -21,6 +24,7 @@ function AddBusDialogueBox({ isOpen, onClose }) {
     const handleAddBus = (e) => {
         e.preventDefault();
         console.log("Bus Added:", newBus);
+        toast("Bus Added Successfully")
         onClose(true);
     }
 
@@ -41,13 +45,13 @@ function AddBusDialogueBox({ isOpen, onClose }) {
                 </div>
                 <form onSubmit={handleAddBus}>
 
-                    {/* Plate NUmber */}
-                    <div className="mb-4">
-                        <label className="block text-gray-700 font-semibold mb-2">Plate Number:</label>
+                    {/* Bus Number */}
+                    <div className="mb-3">
+                        <label className="block text-gray-700 font-semibold mb-2">Bus ID</label>
                         <input
                             type="text"
-                            name="number"
-                            value={newBus.number}
+                            name="busNumber"
+                            value={newBus.busId}
                             onChange={handleInputChange}
                             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="e.g., B-007"
@@ -55,28 +59,33 @@ function AddBusDialogueBox({ isOpen, onClose }) {
                         />
                     </div>
 
-                    {/* Bus Model */}
-                    <div className="mb-4">
-                        <label className="block text-gray-700 font-semibold mb-2">Model:</label>
-                        
-                        {/* <input
+                    {/* Plate Number */}
+                    <div className="mb-3">
+                        <label className="block text-gray-700 font-semibold mb-2">Plate Number</label>
+                        <input
                             type="text"
-                            name="busId"
-                            value={newBus.busId}
+                            name="licensePlate"
+                            value={newBus.licensePlate}
                             onChange={handleInputChange}
                             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="e.g., B-007"
+                            placeholder="e.g., GJ-05-MH-6789"
                             required
-                        /> */}
+                        />
+                    </div>
+
+                    {/* Bus Model */}
+                    <div className="mb-3">
+                        <label className="block text-gray-700 font-semibold mb-2">Model:</label>
+                        <SelectBus model={newBus.model} setModel={(value) => setNewBus((prev) => ({...prev, model: value}))} />
                     </div>
 
                     {/* Capacity */}
-                    <div className="mb-4">
-                        <label className="block text-gray-700 font-semibold mb-2">BusID:</label>
+                    <div className="mb-3">
+                        <label className="block text-gray-700 font-semibold mb-2">Capacity</label>
                         <input
                             type="text"
-                            name="busId"
-                            value={newBus.busId}
+                            name="capacity"
+                            value={newBus.capacity}
                             onChange={handleInputChange}
                             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="e.g., B-007"
@@ -85,26 +94,28 @@ function AddBusDialogueBox({ isOpen, onClose }) {
                     </div>
 
                     {/* Year */}
-                    <div className="mb-4">
-                        <label className="block text-gray-700 font-semibold mb-2">BusID:</label>
+                    <div className="mb-3">
+                        <label className="block text-gray-700 font-semibold mb-2">Year:</label>
                         <input
                             type="text"
-                            name="busId"
-                            value={newBus.busId}
+                            name="year"
+                            value={newBus.year}
                             onChange={handleInputChange}
                             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="e.g., B-007"
+                            placeholder="e.g. 2025" 
+                            pattern="^[0-9]{4}$"  
                             required
                         />
                     </div>
+
 
                     {/* Routes */}
-                    <div className="mb-4">
-                        <label className="block text-gray-700 font-semibold mb-2">BusID:</label>
+                    <div className="mb-3">
+                        <label className="block text-gray-700 font-semibold mb-2">Route</label>
                         <input
                             type="text"
-                            name="busId"
-                            value={newBus.busId}
+                            name="routeID"
+                            value={newBus.routeID}
                             onChange={handleInputChange}
                             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="e.g., B-007"
@@ -113,7 +124,7 @@ function AddBusDialogueBox({ isOpen, onClose }) {
                     </div>
 
 
-                    
+
                     {/* Submit Button  */}
                     <div className="flex justify-end space-x-4">
                         <button
@@ -132,7 +143,7 @@ function AddBusDialogueBox({ isOpen, onClose }) {
                     </div>
                 </form>
             </div>
-            </div>
+        </div>
     )
 }
 
