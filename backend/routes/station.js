@@ -4,17 +4,16 @@ const Station = require('../models/station');
 const { verifyUser } = require('../middleware/authMiddleware');
 
 // POST - Add a single station (Admin only)
-// router.post('/', verifyUser, async (req, res) => {
-router.post('/', async (req, res) => {
+router.post('/', verifyUser, async (req, res) => {
   try {
     
-    // // Check if user is admin
-    // if (!req.user || !req.user.admin) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     error: 'Access denied. Admin privileges required.'
-    //   });
-    // }
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
 
     const stationData = req.body;
     
@@ -103,16 +102,15 @@ router.post('/', async (req, res) => {
 });
 
 // POST - Add multiple stations (Bulk insert - Admin only)
-// router.post('/bulk', verifyUser, async (req, res) => {
-router.post('/bulk', async (req, res) => {
+router.post('/bulk', verifyUser, async (req, res) => {
   try {
     // // Check if user is admin
-    // if (!req.user || !req.user.admin) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     error: 'Access denied. Admin privileges required.'
-    //   });
-    // }
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
 
     const { stations } = req.body;
     
