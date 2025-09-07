@@ -19,24 +19,55 @@ router.get('/', verifyUser, async (req, res) => {
     const limit = parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 10;
     const skip = (page - 1) * limit;
 
-    // Get total count for pagination info
-    const totalBuses = await Bus.countDocuments();
+    // Get bus counts and paginated data in parallel for optimization
+    const [busCounts, buses] = await Promise.all([
+      // Get counts for different bus statuses
+      Bus.aggregate([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            active: {
+              $sum: { $cond: [{ $eq: ['$currentStatus', 'active'] }, 1, 0] }
+            },
+            maintenance: {
+              $sum: { $cond: [{ $eq: ['$currentStatus', 'maintenance'] }, 1, 0] }
+            },
+            inactive: {
+              $sum: { $cond: [{ $eq: ['$currentStatus', 'inactive'] }, 1, 0] }
+            },
+            breakdown: {
+              $sum: { $cond: [{ $eq: ['$currentStatus', 'breakdown'] }, 1, 0] }
+            }
+          }
+        }
+      ]),
+      // Fetch paginated buses
+      Bus.find()
+        .skip(skip)
+        .limit(limit)
+        .populate('routeId', 'name') // Populate only route name
+        .lean()
+    ]);
 
-    // Fetch paginated buses
-    const buses = await Bus.find()
-      .skip(skip)
-      .limit(limit)
-      .populate('routeId', 'name') // Populate only route name
-      .lean();
+    // Extract counts from aggregation result
+    const counts = busCounts[0] || { total: 0, active: 0, maintenance: 0, inactive: 0, breakdown: 0 };
 
     res.json({
       success: true,
       data: buses,
+      counts: {
+        total: counts.total,
+        active: counts.active,
+        maintenance: counts.maintenance,
+        inactive: counts.inactive,
+        breakdown: counts.breakdown
+      },
       pagination: {
-        total: totalBuses,
+        total: counts.total,
         page,
         limit,
-        totalPages: Math.ceil(totalBuses / limit)
+        totalPages: Math.ceil(counts.total / limit)
       }
     });
   } catch (err) {

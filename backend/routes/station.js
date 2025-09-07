@@ -19,23 +19,54 @@ router.get('/', verifyUser, async (req, res) => {
     const limit = parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 10;
     const skip = (page - 1) * limit;
 
-    // Get total count for pagination info
-    const totalStations = await Station.countDocuments();
+    // Get station counts and paginated data in parallel for optimization
+    const [stationCounts, stations] = await Promise.all([
+      // Get counts for different station statuses
+      Station.aggregate([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            active: {
+              $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] }
+            },
+            inactive: {
+              $sum: { $cond: [{ $eq: ['$status', 'inactive'] }, 1, 0] }
+            },
+            maintenance: {
+              $sum: { $cond: [{ $eq: ['$status', 'maintenance'] }, 1, 0] }
+            },
+            closed: {
+              $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0] }
+            }
+          }
+        }
+      ]),
+      // Fetch paginated stations
+      Station.find()
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
 
-    // Fetch paginated stations
-    const stations = await Station.find()
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    // Extract counts from aggregation result
+    const counts = stationCounts[0] || { total: 0, active: 0, inactive: 0, maintenance: 0, closed: 0 };
 
     res.json({
       success: true,
       data: stations,
+      counts: {
+        total: counts.total,
+        active: counts.active,
+        inactive: counts.inactive,
+        maintenance: counts.maintenance,
+        closed: counts.closed
+      },
       pagination: {
-        total: totalStations,
+        total: counts.total,
         page,
         limit,
-        totalPages: Math.ceil(totalStations / limit)
+        totalPages: Math.ceil(counts.total / limit)
       }
     });
   } catch (err) {
