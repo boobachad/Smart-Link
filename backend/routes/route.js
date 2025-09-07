@@ -3,6 +3,50 @@ const router = express.Router();
 const Route = require('../models/route');
 const { verifyUser } = require('../middleware/authMiddleware');
 
+// GET - Get all routes (paginated, Admin only)
+router.get('/', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    // Parse pagination query params
+    const page = parseInt(req.query.page) > 0 ? parseInt(req.query.page) : 1;
+    const limit = parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 10;
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination info
+    const totalRoutes = await Route.countDocuments();
+
+    // Fetch paginated routes
+    const routes = await Route.find()
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    res.json({
+      success: true,
+      data: routes,
+      pagination: {
+        total: totalRoutes,
+        page,
+        limit,
+        totalPages: Math.ceil(totalRoutes / limit)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch routes',
+      details: err.message
+    });
+  }
+});
+
 // POST - Add a single route (Admin only)
 router.post('/', verifyUser, async (req, res) => {
   try {
