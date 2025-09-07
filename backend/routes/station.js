@@ -3,18 +3,92 @@ const router = express.Router();
 const Station = require('../models/station');
 const { verifyUser } = require('../middleware/authMiddleware');
 
+// GET - Get all stations (paginated, Admin only)
+router.get('/', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    // Parse pagination query params
+    const page = parseInt(req.query.page) > 0 ? parseInt(req.query.page) : 1;
+    const limit = parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 10;
+    const skip = (page - 1) * limit;
+
+    // Get station counts and paginated data in parallel for optimization
+    const [stationCounts, stations] = await Promise.all([
+      // Get counts for different station statuses
+      Station.aggregate([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            active: {
+              $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] }
+            },
+            inactive: {
+              $sum: { $cond: [{ $eq: ['$status', 'inactive'] }, 1, 0] }
+            },
+            maintenance: {
+              $sum: { $cond: [{ $eq: ['$status', 'maintenance'] }, 1, 0] }
+            },
+            closed: {
+              $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0] }
+            }
+          }
+        }
+      ]),
+      // Fetch paginated stations
+      Station.find()
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
+
+    // Extract counts from aggregation result
+    const counts = stationCounts[0] || { total: 0, active: 0, inactive: 0, maintenance: 0, closed: 0 };
+
+    res.json({
+      success: true,
+      data: stations,
+      counts: {
+        total: counts.total,
+        active: counts.active,
+        inactive: counts.inactive,
+        maintenance: counts.maintenance,
+        closed: counts.closed
+      },
+      pagination: {
+        total: counts.total,
+        page,
+        limit,
+        totalPages: Math.ceil(counts.total / limit)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch stations',
+      details: err.message
+    });
+  }
+});
+
 // POST - Add a single station (Admin only)
-// router.post('/', verifyUser, async (req, res) => {
-router.post('/', async (req, res) => {
+router.post('/', verifyUser, async (req, res) => {
   try {
     
-    // // Check if user is admin
-    // if (!req.user || !req.user.admin) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     error: 'Access denied. Admin privileges required.'
-    //   });
-    // }
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
 
     const stationData = req.body;
     
@@ -103,16 +177,15 @@ router.post('/', async (req, res) => {
 });
 
 // POST - Add multiple stations (Bulk insert - Admin only)
-// router.post('/bulk', verifyUser, async (req, res) => {
-router.post('/bulk', async (req, res) => {
+router.post('/bulk', verifyUser, async (req, res) => {
   try {
     // // Check if user is admin
-    // if (!req.user || !req.user.admin) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     error: 'Access denied. Admin privileges required.'
-    //   });
-    // }
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
 
     const { stations } = req.body;
     

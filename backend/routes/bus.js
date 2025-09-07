@@ -3,18 +3,95 @@ const router = express.Router();
 const Bus = require('../models/bus');
 const { verifyUser } = require('../middleware/authMiddleware');
 
+// GET - Get all buses (paginated, Admin only)
+router.get('/', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    // Parse pagination query params
+    const page = parseInt(req.query.page) > 0 ? parseInt(req.query.page) : 1;
+    const limit = parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 10;
+    const skip = (page - 1) * limit;
+
+    // Get bus counts and paginated data in parallel for optimization
+    const [busCounts, buses] = await Promise.all([
+      // Get counts for different bus statuses
+      Bus.aggregate([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            active: {
+              $sum: { $cond: [{ $eq: ['$currentStatus', 'active'] }, 1, 0] }
+            },
+            maintenance: {
+              $sum: { $cond: [{ $eq: ['$currentStatus', 'maintenance'] }, 1, 0] }
+            },
+            inactive: {
+              $sum: { $cond: [{ $eq: ['$currentStatus', 'inactive'] }, 1, 0] }
+            },
+            breakdown: {
+              $sum: { $cond: [{ $eq: ['$currentStatus', 'breakdown'] }, 1, 0] }
+            }
+          }
+        }
+      ]),
+      // Fetch paginated buses
+      Bus.find()
+        .skip(skip)
+        .limit(limit)
+        .populate('routeId', 'name') // Populate only route name
+        .lean()
+    ]);
+
+    // Extract counts from aggregation result
+    const counts = busCounts[0] || { total: 0, active: 0, maintenance: 0, inactive: 0, breakdown: 0 };
+
+    res.json({
+      success: true,
+      data: buses,
+      counts: {
+        total: counts.total,
+        active: counts.active,
+        maintenance: counts.maintenance,
+        inactive: counts.inactive,
+        breakdown: counts.breakdown
+      },
+      pagination: {
+        total: counts.total,
+        page,
+        limit,
+        totalPages: Math.ceil(counts.total / limit)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch buses',
+      details: err.message
+    });
+  }
+});
+
+
+
 // POST - Add a single bus (Admin only)
-// router.post('/', verifyUser, async (req, res) => {
-router.post('/', async (req, res) => {
+router.post('/', verifyUser, async (req, res) => {
   try {
     
     // // Check if user is admin
-    // if (!req.user || !req.user.admin) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     error: 'Access denied. Admin privileges required.'
-    //   });
-    // }
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
 
     const busData = req.body;
     
@@ -103,16 +180,15 @@ router.post('/', async (req, res) => {
 });
 
 // POST - Add multiple buses (Bulk insert - Admin only)
-// router.post('/bulk', verifyUser, async (req, res) => {
-router.post('/bulk', async (req, res) => {
+router.post('/bulk', verifyUser, async (req, res) => {
   try {
     // // Check if user is admin
-    // if (!req.user || !req.user.admin) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     error: 'Access denied. Admin privileges required.'
-    //   });
-    // }
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
 
     const { buses } = req.body;
     

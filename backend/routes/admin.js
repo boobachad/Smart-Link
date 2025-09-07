@@ -6,18 +6,16 @@ const bus = require('../models/bus');
 const route = require('../models/route');
 const station = require('../models/station');
 const stop = require('../models/stop');
-
+const User = require('../models/user');
 
 /* GET admin page. */
 router.get('/', function (req, res, next) {
     res.send('Admin panel - respond with admin resource');
 });
 
-// router.get("/dashboard", verifyUser, async (req, res) => {
-router.get("/dashboard", async (req, res) => {
+router.get("/dashboard", verifyUser, async (req, res) => {
     // Check if the authenticated user has the 'admin' custom claim
-    // if (req.user && req.user.email_verified === false) {
-    if (true) {
+    if (req.user && req.user.admin === true) {
         const buses = await bus.countDocuments();
         const routes = await route.countDocuments();
         const stations = await station.countDocuments();
@@ -33,11 +31,23 @@ router.get("/dashboard", async (req, res) => {
 });
 
 
-// Uncomment this to set the user as admin
-// const admin = require('../firebase.js');
-// async function setAdmin(uid) {
-//     await admin.auth().setCustomUserClaims(uid, { admin: true });
-//     console.log(`User ${uid} set as admin ✅`);
-// }
+router.post("/set-admin", verifyUser, async (req, res) => {
+    if (req.user && req.user.admin === true) {
+        const { uid, email } = req.body;
+        try {
+            const user = await User.findOne({ email });
+            if (!user) {
+                let admin = await User.create({ email, adminId: uid });
+                await admin.save();
+                res.status(200).json({ message: "User has been set as admin." });
+            } else {
+                res.status(404).json({ message: "User already exists." });
+            }
+        }catch (error) {
+            console.log(error);
+            res.status(500).json({ message: "An error occurred while setting the user as admin.", error: error.message });
+        }
+    }
+});
 
 module.exports = router;

@@ -1,5 +1,6 @@
 // authMiddleware.js
 const admin = require("../firebase.js");
+const User = require("../models/user.js");
 
 async function verifyUser(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -13,6 +14,9 @@ async function verifyUser(req, res, next) {
     // Verify Firebase token
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.user = decodedToken; // attaches user data to req
+    if(User.findOne({adminId: decodedToken.uid})){
+      req.user.admin = true;
+    }
     next();
   } catch (err) {
     console.error("Token verification failed:", err);
