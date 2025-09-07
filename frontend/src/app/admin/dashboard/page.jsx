@@ -1,40 +1,63 @@
 'use client';
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { auth } from "../../firebase/config"
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation'
+import SideNavbar from '../_components/SideNavbar';
 
 function AdminDashBoard() {
 
     const [user, loading, error] = useAuthState(auth);
     const userSession = sessionStorage.getItem('user');
+    const [activeSection, setActiveSection] = useState('Dashboard');
     const router = useRouter();
 
-    if(!user && !userSession) {
+
+    if (!user && !userSession) {
         router.push('/admin/login');
     }
+
 
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center text-lg">Loading...</div>;
     }
 
+
+
     return (
-        <div className="min-h-screen bg-gray-100 flex flex-col items-center p-8">
-            <h1 className="text-4xl font-extrabold text-gray-900 mb-6">Admin Dashboard</h1>
-            <p className="text-lg text-gray-600 mb-8">Welcome, you are logged in!</p>
-            <div className="bg-white rounded-xl shadow-2xl p-6 sm:p-8 space-y-4 max-w-lg w-full">
-                <p>User Email: {user?.email}</p>
-                <button
-                    onClick={async () => {
-                        await signOut(auth);
-                        sessionStorage.removeItem('user');
-                    }}
-                    className="w-full py-2 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                >
-                    Logout
-                </button>
+        <div className="flex h-screen bg-gray-50">
+            <SideNavbar
+                activeSection={activeSection}
+                setActiveSection={setActiveSection}
+                loading={loading}
+            />
+            <div className="flex-1 p-8">
+                <div className="flex items-center justify-between mb-8">
+                    <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+                    <p className="text-gray-600">Welcome back, Admin!</p>
+                </div>
+
+                {/* Stats Cards Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
+                        <h2 className="text-xl font-semibold text-gray-700">Total Buses</h2>
+                        <p className="text-4xl font-bold text-blue-600 mt-2">42</p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
+                        <h2 className="text-xl font-semibold text-gray-700">Active Routes</h2>
+                        <p className="text-4xl font-bold text-green-600 mt-2">18</p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
+                        <h2 className="text-xl font-semibold text-gray-700">Total Stations</h2>
+                        <p className="text-4xl font-bold text-yellow-600 mt-2">120</p>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
+                        <h2 className="text-xl font-semibold text-gray-700">Online Drivers</h2>
+                        <p className="text-4xl font-bold text-red-600 mt-2">35</p>
+                    </div>
+                </div>
             </div>
         </div>
     );
