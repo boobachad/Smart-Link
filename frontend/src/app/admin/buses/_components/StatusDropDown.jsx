@@ -6,7 +6,7 @@ const StatusDropdown = ({ busId, initialStatus, onStatusChange }) => {
   const [status, setStatus] = useState(initialStatus);
   const dropdownRef = useRef(null);
 
-  const statuses = ['Active', 'Under Maintenance', 'Inactive'];
+  const statuses = ['active', 'maintenance', 'inactive', 'breakdown'];
 
   const toggleDropdown = () => setIsOpen(!isOpen);
 

@@ -1,35 +1,55 @@
 'use client';
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react';
 import SideNavbar from '../_components/SideNavbar';
 import ActiveBusCard from './_components/activeBusCard';
 import TotalBusCard from './_components/totalBusCard';
 import MaintenanceCard from './_components/maintenanceCard';
-import { Trash } from 'lucide-react';
+import InActiveBusCard from './_components/inActiveBusCard';
 import AddBusDialogueBox from './_components/AddBusDialogueBox';
 import BusPageLoadingSkeleton from './_components/BusPageLoadingSkeleton';
 import { DataTable } from './_components/BusTable/data-table';
 import { columns } from './_components/BusTable/columns';
-import {busData} from '@/data/bus_data'
+import { useBus } from '@/hooks/useBuses';
 
 function BusesPage() {
 
     const [activeSection, setActiveSection] = useState('Buses');
     const [isDialogueOpen, setIsDialogueOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [page, setPage] = useState(1);
+    const { data, totalPages, loading, count } = useBus(page, 10);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const res = await getBuses(page) // call API with current page
+                setData(res.buses)
+                setTotalPages(res.totalPages)
+            } catch (err) {
+                console.error("Error fetching buses:", err)
+            }
+        }
+        fetchData()
+    }, [page])
+
+    const handlePageChange = (newPage) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setPage(newPage)
+        }
+    }
 
     if (loading) {
         return <BusPageLoadingSkeleton />
     }
 
     return (
-        <div className="flex h-screen bg-gray-50 overflow-y-hidden">
+        <div className="flex h-screen bg-gray-50">
             <SideNavbar
                 activeSection={activeSection}
                 setActiveSection={setActiveSection}
             // loading={loading}
             />
-            <div className="flex-1 p-6">
+            <div className="flex-1 p-6 overflow-y-scroll">
                 <div onClick={() => setIsDialogueOpen(true)} className="flex items-center justify-between mb-8 border-b-2 border-gray-200 pb-4">
                     <h1 className="text-3xl font-bold text-gray-800">Buses Fleet Managment</h1>
                     <button
@@ -41,16 +61,17 @@ function BusesPage() {
 
                 <div className="p-4">
 
-                    <div className='grid grid-cols-3 gap-14'>
-                        <TotalBusCard />
-                        <ActiveBusCard />
-                        <MaintenanceCard />
+                    <div className='grid grid-cols-4 gap-10'>
+                        <TotalBusCard totalBus={count.total} />
+                        <ActiveBusCard activeBus={count.active} />
+                        <MaintenanceCard maintenanceBus={count.maintenance} />
+                        <InActiveBusCard inActiveBus={count.inactive} />
                     </div>
 
                     <div className='mt-10 border border-gray-300 shadow-lg p-6 rounded-lg'>
                         <h2 className='text-2xl font-semibold mb-6'>All Buses</h2>
                         <div className='overflow-x-auto'>
-                            <DataTable columns={columns} data={busData} />
+                            <DataTable columns={columns} data={data} page={page} totalPages={totalPages} onPageChange={handlePageChange} />
                         </div>
                     </div>
                 </div>

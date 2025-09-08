@@ -1,7 +1,7 @@
 import React from 'react'
 import { Wrench } from 'lucide-react'
 
-function maintenanceCard() {
+function maintenanceCard({ maintenanceBus}) {
     return (
         <div className="bg-white shadow-lg rounded-xl p-8">
             <div className='flex justify-between items-center'>
@@ -9,7 +9,7 @@ function maintenanceCard() {
                 <Wrench className='text-red-400' size={30} />
             </div>
             <div className=''>
-                <p className="text-4xl font-bold text-red-600 mt-2">4</p>
+                <p className="text-4xl font-bold text-red-600 mt-2">{maintenanceBus}</p>
             </div>
         </div>
     )

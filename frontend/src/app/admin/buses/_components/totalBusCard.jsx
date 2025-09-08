@@ -1,7 +1,7 @@
 import React from 'react'
 import { BusFront } from 'lucide-react';
 
-function totalBusCard() {
+function totalBusCard({ totalBus }) {
     return (
         <div className="bg-white shadow-lg rounded-xl p-8">
             <div className='flex justify-between items-center'>
@@ -9,7 +9,7 @@ function totalBusCard() {
                 <BusFront className='text-gray-500' size={30} />
             </div>
             <div className=''>
-                <p className="text-4xl font-bold text-gray-900 mt-2">42</p>
+                <p className="text-4xl font-bold text-gray-900 mt-2">{totalBus}</p>
             </div>
         </div>
     )

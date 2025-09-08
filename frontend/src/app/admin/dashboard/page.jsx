@@ -6,12 +6,14 @@ import { auth } from "../../firebase/config"
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation'
 import SideNavbar from '../_components/SideNavbar';
+import { useDashActivity } from '@/hooks/useDashActivity';
 
 function AdminDashBoard() {
 
-    const [user, loading, error] = useAuthState(auth);
+    const [user] = useAuthState(auth);
     const userSession = sessionStorage.getItem('user');
     const [activeSection, setActiveSection] = useState('Dashboard');
+    const { data, loading, error } = useDashActivity()
     const router = useRouter();
 
 
@@ -19,6 +21,14 @@ function AdminDashBoard() {
         router.push('/admin/login');
     }
 
+    useEffect(() => {
+        if (user) {
+            user.getIdToken().then(token => {
+                localStorage.setItem('userAuth', token);
+                console.log("Token stored in localStorage:", token);
+            });
+        }
+    }, [user]);
 
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center text-lg">Loading...</div>;
@@ -42,20 +52,24 @@ function AdminDashBoard() {
                 {/* Stats Cards Section */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
-                        <h2 className="text-xl font-semibold text-gray-700">Total Buses</h2>
-                        <p className="text-4xl font-bold text-blue-600 mt-2">42</p>
-                    </div>
-                    <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
                         <h2 className="text-xl font-semibold text-gray-700">Active Routes</h2>
-                        <p className="text-4xl font-bold text-green-600 mt-2">18</p>
+                        <p className="text-4xl font-bold text-blue-600 mt-4">{data.routes}</p>
+                        <span className='text-sm text-gray-400'>operational routes</span>
                     </div>
                     <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
-                        <h2 className="text-xl font-semibold text-gray-700">Total Stations</h2>
-                        <p className="text-4xl font-bold text-yellow-600 mt-2">120</p>
+                        <h2 className="text-xl font-semibold text-gray-700">Total Buses</h2>
+                        <p className="text-4xl font-bold text-green-600 mt-4">{data.buses}</p>
+                        <span className='text-sm text-gray-400'>Fleet Size</span>
                     </div>
                     <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
-                        <h2 className="text-xl font-semibold text-gray-700">Online Drivers</h2>
-                        <p className="text-4xl font-bold text-red-600 mt-2">35</p>
+                        <h2 className="text-xl font-semibold text-gray-700">Bus Stations</h2>
+                        <p className="text-4xl font-bold text-yellow-600 mt-4">{data.stations}</p>
+                        <span className='text-sm text-gray-400'>Network Coverage</span>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
+                        <h2 className="text-xl font-semibold text-gray-700">On-Time Performance</h2>
+                        <p className="text-4xl font-bold text-red-600 mt-4">{data.onTimePerformance}%</p>
+                        <span className='text-sm text-gray-400'>last 30 days</span>
                     </div>
                 </div>
             </div>
