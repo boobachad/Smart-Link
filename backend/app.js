@@ -24,6 +24,7 @@ const busRouter = require('./routes/bus');
 const routeRouter = require('./routes/route');
 const stationRouter = require('./routes/station');
 const stopRouter = require('./routes/stop');
+const driverRouter = require('./routes/driver');
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use('/api/buses', busRouter);
 app.use('/api/routes', routeRouter);
 app.use('/api/stations', stationRouter);
 app.use('/api/stops', stopRouter);
+app.use('/api/drivers', driverRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

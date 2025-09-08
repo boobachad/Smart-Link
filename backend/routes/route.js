@@ -110,7 +110,7 @@ router.post('/', verifyUser, async (req, res) => {
     }
 
     const route = new Route(routeData);
-    const savedRoute = await route.save();
+    await route.save();
     
     res.status(201).json({
       success: true,
@@ -334,5 +334,171 @@ router.post('/bulk', verifyUser, async (req, res) => {
     });
   }
 });
+
+// Assign a bus to a route (Admin only)
+// Assign multiple buses to a route using route code (Admin only)
+router.put('/:routeCode/assign-bus', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const { routeCode } = req.params;
+    let { busIds } = req.body;
+
+    // Accept both single value and array, but always work with array
+    if (!busIds) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: busIds'
+      });
+    }
+    if (!Array.isArray(busIds)) {
+      busIds = [busIds];
+    }
+
+    // Find route by code instead of ID
+    const route = await Route.findOne({ code: routeCode });
+    if (!route) {
+      return res.status(404).json({
+        success: false,
+        error: 'Route not found'
+      });
+    }
+
+    const results = [];
+    for (const busId of busIds) {
+      try {
+        await route.assignBus(busId);
+        results.push({
+          busId,
+          success: true,
+          message: 'Bus assigned to route successfully'
+        });
+      } catch (err) {
+        results.push({
+          busId,
+          success: false,
+          error: err.message
+        });
+      }
+    }
+
+    res.json({
+      success: results.every(r => r.success),
+      routeId: route._id,
+      routeCode: route.code,
+      results
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to assign buses to route',
+      message: err.message
+    });
+  }
+});
+
+// Unassign multiple buses from a route using route code (Admin only)
+router.put('/:routeCode/unassign-bus', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const { routeCode } = req.params;
+    let { busIds } = req.body;
+
+    // Accept both single value and array, but always work with array
+    if (!busIds) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: busIds'
+      });
+    }
+    if (!Array.isArray(busIds)) {
+      busIds = [busIds];
+    }
+
+    // Find route by code instead of ID
+    const route = await Route.findOne({ code: routeCode });
+    if (!route) {
+      return res.status(404).json({
+        success: false,
+        error: 'Route not found'
+      });
+    }
+
+    const results = [];
+    for (const busId of busIds) {
+      try {
+        await route.unassignBus(busId);
+        results.push({
+          busId,
+          success: true,
+          message: 'Bus unassigned from route successfully'
+        });
+      } catch (err) {
+        results.push({
+          busId,
+          success: false,
+          error: err.message
+        });
+      }
+    }
+
+    res.json({
+      success: results.every(r => r.success),
+      routeId: route._id,
+      routeCode: route.code,
+      results
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to unassign buses from route',
+      message: err.message
+    });
+  }
+});
+
+// GET - Get list of buses assigned to a route (by route code)
+router.get('/:routeCode/assigned-buses', async (req, res) => {
+  try {
+    const { routeCode } = req.params;
+
+    // Find the route by code
+    const route = await Route.findOne({ code: routeCode }).populate('assignedBuses', "busNumber driverId currentStatus tracking.deviceId");
+    if (!route) {
+      return res.status(404).json({
+        success: false,
+        error: 'Route not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      routeId: route._id,
+      routeCode: route.code,
+      assignedBuses: route.assignedBuses
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get assigned buses',
+      message: err.message
+    });
+  }
+});
+
+
 
 module.exports = router;

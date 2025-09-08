@@ -179,6 +179,12 @@ const routeSchema = new mongoose.Schema({
     }]
   },
   
+  // List of buses assigned to this route
+  assignedBuses: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Bus'
+  }],
+
   // Route analytics and performance
   analytics: {
     averagePassengers: {
@@ -241,6 +247,11 @@ routeSchema.virtual('currentFrequency').get(function() {
   return isPeakHour ? this.timing.peakFrequency : this.timing.offPeakFrequency || this.timing.frequency;
 });
 
+// Virtual for getting count of buses assigned to this route
+routeSchema.virtual('busCount').get(function() {
+  return this.assignedBuses.length;
+});
+
 // Pre-save middleware to calculate total duration if not provided
 routeSchema.pre('save', function(next) {
   if (!this.timing.totalDuration && this.intermediatePoints.length > 0) {
@@ -282,6 +293,21 @@ routeSchema.statics.findByTimeRange = function(startTime, endTime) {
   return this.find({
     'timing.firstTrip': { $lte: endTime },
     'timing.lastTrip': { $gte: startTime },
+    status: 'active'
+  });
+};
+
+// Static method to find routes by bus assignment
+routeSchema.statics.findByBusAssignment = function(busId) {
+  return this.find({
+    assignedBuses: busId
+  });
+};
+
+// Static method to find routes with no buses assigned
+routeSchema.statics.findUnassignedRoutes = function() {
+  return this.find({
+    assignedBuses: { $size: 0 },
     status: 'active'
   });
 };
@@ -381,6 +407,43 @@ routeSchema.methods.updateAnalytics = function(passengers, onTime, speed, revenu
   if (revenue !== undefined) this.analytics.revenue = revenue;
   
   return this.save();
+};
+
+// Instance method to assign a bus to this route
+routeSchema.methods.assignBus = function(busId) {
+  // Check if bus is already assigned
+  const isAlreadyAssigned = this.assignedBuses.some(bus => 
+    bus.toString() === busId.toString()
+  );
+  
+  if (isAlreadyAssigned) {
+    throw new Error('Bus is already assigned to this route');
+  }
+  
+  // Add new assignment
+  this.assignedBuses.push(busId);
+  return this.save();
+};
+
+// Instance method to unassign a bus from this route
+routeSchema.methods.unassignBus = function(busId) {
+  const busIndex = this.assignedBuses.findIndex(bus => 
+    bus.toString() === busId.toString()
+  );
+  
+  if (busIndex === -1) {
+    throw new Error('Bus is not assigned to this route');
+  }
+  
+  this.assignedBuses.splice(busIndex, 1);
+  return this.save();
+};
+
+// Instance method to check if a bus is assigned to this route
+routeSchema.methods.isBusAssigned = function(busId) {
+  return this.assignedBuses.some(bus => 
+    bus.toString() === busId.toString()
+  );
 };
 
 // Create and export the model

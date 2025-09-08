@@ -347,4 +347,220 @@ router.post('/bulk', verifyUser, async (req, res) => {
   }
 });
 
+// PUT - Change route assignment for a bus (Admin only)
+router.put('/:busNumber/change-route', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const { busNumber } = req.params;
+    const { newRouteId } = req.body;
+
+    if (!newRouteId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: newRouteId'
+      });
+    }
+
+    // Find the bus by its number
+    const bus = await Bus.findOne({ busNumber: busNumber });
+    if (!bus) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bus not found'
+      });
+    }
+
+    // Use the model's changeRoute method
+    await bus.changeRoute(newRouteId);
+
+    res.json({
+      success: true,
+      message: 'Bus route assignment updated successfully',
+      busNumber: bus.busNumber,
+      newRouteId: newRouteId
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to change bus route assignment',
+      message: err.message
+    });
+  }
+});
+
+
+// PUT - Change status of a bus (Admin only)
+router.put('/:busNumber/change-status', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const { busNumber } = req.params;
+    const { newStatus } = req.body;
+
+    // Validate newStatus
+    const allowedStatuses = ['active', 'inactive', 'maintenance', 'breakdown'];
+    if (!newStatus || !allowedStatuses.includes(newStatus)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or missing required field: newStatus',
+        allowedStatuses
+      });
+    }
+
+    // Find the bus by its number
+    const bus = await Bus.findOne({ busNumber: busNumber });
+    if (!bus) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bus not found'
+      });
+    }
+
+    // Update the status
+    bus.currentStatus = newStatus;
+    await bus.save();
+
+    res.json({
+      success: true,
+      message: 'Bus status updated successfully',
+      busNumber: bus.busNumber,
+      newStatus: bus.currentStatus
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to change bus status',
+      message: err.message
+    });
+  }
+});
+
+// POST - Change the driver of a bus (Admin only)
+router.put('/:busNumber/change-driver', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const { busNumber } = req.params;
+    const { newDriverId } = req.body;
+
+    // Validate newDriverId
+    if (!newDriverId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: newDriverId'
+      });
+    }
+
+    // Find the bus by its number
+    const bus = await Bus.findOne({ busNumber: busNumber });
+    if (!bus) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bus not found'
+      });
+    }
+
+    // Update the driver
+    await bus.changeDriver(newDriverId);
+
+    res.json({
+      success: true,
+      message: 'Bus driver changed successfully',
+      busNumber: bus.busNumber,
+      newDriverId: bus.driverId
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to change bus driver',
+      message: err.message
+    });
+  }
+});
+
+// PATCH - Update multiple details of a bus (Admin only)
+router.patch('/:busNumber', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const { busNumber } = req.params;
+    const updateData = req.body;
+
+    // Find the bus by its number
+    const bus = await Bus.findOne({ busNumber: busNumber });
+    if (!bus) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bus not found'
+      });
+    }
+
+    // List of fields that can be updated directly
+    const updatableFields = [
+      'busNumber',
+      'routeId',
+      'currentStatus',
+      'driverId',
+      'schedule',
+      'maintenance',
+      'vehicleInfo',
+      'location',
+      'tracking',
+      'operationalData'
+    ];
+
+    // Update allowed fields
+    updatableFields.forEach(field => {
+      if (updateData[field] !== undefined) {
+        // If the field is an object, merge instead of replace
+        if (typeof updateData[field] === 'object' && updateData[field] !== null && typeof bus[field] === 'object' && bus[field] !== null) {
+          bus[field] = { ...bus[field]._doc || bus[field], ...updateData[field] };
+        } else {
+          bus[field] = updateData[field];
+        }
+      }
+    });
+
+    await bus.save();
+
+    res.json({
+      success: true,
+      message: 'Bus details updated successfully',
+      bus: bus
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update bus details',
+      message: err.message
+    });
+  }
+});
+
+
 module.exports = router;
