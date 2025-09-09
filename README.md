@@ -17,8 +17,10 @@ A full-stack web application that enables **real-time tracking of buses**, provi
 - Monitor bus availability and operational status.  
 
 ### ⚡ Technical Features  
-- Real-time location streaming with **Redis in-memory caching** for ultra-fast updates.  
-- **JWT-based authentication** for secure user and admin access.  
+- **ETA Model** that predict the arrival time based on the past data.
+- Real-time location streaming with **Redis in-memory caching** for ultra-fast updates.
+- **Leaflet** for interactive maps. 
+- **Firebase authentication** for secure user and admin access.  
 - **RESTful APIs** for bus data, routes, and live location.  
 - Modular and scalable architecture for handling high traffic.  
 
