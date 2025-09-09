@@ -63,3 +63,4 @@ desktop.ini
 *.tmp
 *.lock
 backend/.env
+backend/.env
