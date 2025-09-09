@@ -79,6 +79,36 @@ router.get('/', verifyUser, async (req, res) => {
   }
 });
 
+// GET - Get a single bus by its bus number
+router.get('/:busNumber', async (req, res) => {
+  try {
+    const { busNumber } = req.params;
+
+    // Find the bus by its busNumber
+    const bus = await Bus.findOne({ busNumber: busNumber })
+      // .populate('routeId', 'name code')
+      // .populate('driverId', 'name licenseNumber phone');
+
+    if (!bus) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bus not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: bus
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch bus',
+      details: err.message
+    });
+  }
+});
+
 
 
 // POST - Add a single bus (Admin only)
