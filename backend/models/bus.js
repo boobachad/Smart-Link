@@ -62,17 +62,17 @@ const busSchema = new mongoose.Schema({
   location: {
     latitude: {
       type: Number,
-      required: function() {
-        return this.currentStatus === 'active';
-      },
+      // required: function() {
+      //   return this.currentStatus === 'active';
+      // },
       min: -90,
       max: 90
     },
     longitude: {
       type: Number,
-      required: function() {
-        return this.currentStatus === 'active';
-      },
+      // required: function() {
+      //   return this.currentStatus === 'active';
+      // },
       min: -180,
       max: 180
     },
@@ -93,19 +93,9 @@ const busSchema = new mongoose.Schema({
   },
   
   // Driver information
-  driver: {
-    driverId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Driver'
-    },
-    name: {
-      type: String,
-      trim: true
-    },
-    licenseNumber: {
-      type: String,
-      trim: true
-    }
+  driverId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Driver'
   },
   
   // Schedule and timing
@@ -197,6 +187,11 @@ busSchema.virtual('isRunning').get(function() {
   return this.currentStatus === 'active' && this.tracking.isOnline;
 });
 
+// Virtual for checking if bus has a driver assigned
+busSchema.virtual('hasDriver').get(function() {
+  return !!this.driverId;
+});
+
 // Pre-save middleware to update lastSeen when location is updated
 busSchema.pre('save', function(next) {
   if (this.isModified('location.latitude') || this.isModified('location.longitude')) {
@@ -205,6 +200,59 @@ busSchema.pre('save', function(next) {
   }
   next();
 });
+
+// Pre-save middleware to handle driver assignment
+busSchema.pre('save', async function(next) {
+  // Only run this middleware if driverId is being modified
+  if (this.isModified('driverId')) {
+    try {
+      const Driver = require('./driver');
+      
+      // If driverId is being set, update the driver's assignedBus
+      if (this.driverId) {
+        await Driver.findByIdAndUpdate(
+          this.driverId,
+          { assignedBus: this._id }
+        );
+      }
+    } catch (err) {
+      console.error('Failed to update driver assignment:', err.message);
+      // Don't throw error to prevent save failure
+    }
+  }
+  next();
+});
+
+// Pre-save middleware to handle route assignment
+busSchema.pre('save', async function(next) {
+  // Only run this middleware if routeId is being modified
+  if (this.isModified('routeId')) {
+    try {
+      const Route = require('./route');
+
+      // Remove this bus from the old route's assignedBuses, if any
+      if (this.$__.priorDoc && this.$__.priorDoc.routeId && this.$__.priorDoc.routeId.toString() !== this.routeId?.toString()) {
+        await Route.findByIdAndUpdate(
+          this.$__.priorDoc.routeId,
+          { $pull: { assignedBuses: this._id } }
+        );
+      }
+
+      // Add this bus to the new route's assignedBuses
+      if (this.routeId) {
+        await Route.findByIdAndUpdate(
+          this.routeId,
+          { $addToSet: { assignedBuses: this._id } }
+        );
+      }
+    } catch (err) {
+      console.error('Failed to update route assignment:', err.message);
+      // Don't throw error to prevent save failure
+    }
+  }
+  next();
+});
+
 
 // Static method to find nearby buses
 busSchema.statics.findNearby = function(latitude, longitude, maxDistance = 1000) {
@@ -229,6 +277,123 @@ busSchema.statics.findByRoute = function(routeId) {
     currentStatus: 'active'
   }).populate('routeId');
 };
+
+// Static method to find buses by driver
+busSchema.statics.findByDriver = function(driverId) {
+  return this.find({ 
+    driverId: driverId
+  }).populate('driverId');
+};
+
+// Static method to find buses without drivers
+busSchema.statics.findWithoutDriver = function() {
+  return this.find({ 
+    driverId: { $exists: false }
+  });
+};
+
+// Instance method to change the route of the bus
+busSchema.methods.changeRoute = async function(newRouteId) {
+  // If the route is not actually changing, do nothing
+  if (this.routeId && this.routeId.toString() === newRouteId.toString()) {
+    return this;
+  }
+
+  // Remove this bus from the assignedBuses of the old route, if any
+  if (this.routeId) {
+    try {
+      const Route = require('./route');
+      await Route.findByIdAndUpdate(
+        this.routeId,
+        { $pull: { assignedBuses: this._id } }
+      );
+    } catch (err) {
+      // Log error but continue
+      console.error('Failed to remove bus from old route:', err.message);
+    }
+  }
+
+  // Assign this bus to the new route's assignedBuses
+  if (newRouteId) {
+    try {
+      const Route = require('./route');
+      await Route.findByIdAndUpdate(
+        newRouteId,
+        { $addToSet: { assignedBuses: this._id } }
+      );
+    } catch (err) {
+      // Log error but continue
+      console.error('Failed to add bus to new route:', err.message);
+    }
+  }
+
+  // Update the bus's routeId
+  this.routeId = newRouteId;
+  return this.save();
+};
+
+// Instance method to change the driver of the bus
+busSchema.methods.changeDriver = async function(newDriverId) {
+  // If the driver is not actually changing, do nothing
+  if (this.driverId && this.driverId.toString() === newDriverId.toString()) {
+    return this;
+  }
+
+  // Remove this bus from the old driver's assignedBus, if any
+  if (this.driverId) {
+    try {
+      const Driver = require('./driver');
+      await Driver.findByIdAndUpdate(
+        this.driverId,
+        { $unset: { assignedBus: 1 } }
+      );
+    } catch (err) {
+      // Log error but continue
+      console.error('Failed to remove bus from old driver:', err.message);
+    }
+  }
+
+  // Assign this bus to the new driver's assignedBus
+  if (newDriverId) {
+    try {
+      const Driver = require('./driver');
+      await Driver.findByIdAndUpdate(
+        newDriverId,
+        { assignedBus: this._id }
+      );
+    } catch (err) {
+      // Log error but continue
+      console.error('Failed to assign bus to new driver:', err.message);
+    }
+  }
+
+  // Update the bus's driverId
+  this.driverId = newDriverId;
+  return this.save();
+};
+
+// Instance method to unassign driver from bus
+busSchema.methods.unassignDriver = async function() {
+  if (!this.driverId) {
+    return this;
+  }
+
+  // Remove this bus from the driver's assignedBus
+  try {
+    const Driver = require('./driver');
+    await Driver.findByIdAndUpdate(
+      this.driverId,
+      { $unset: { assignedBus: 1 } }
+    );
+  } catch (err) {
+    console.error('Failed to remove bus from driver:', err.message);
+  }
+
+  // Clear the bus's driverId
+  this.driverId = undefined;
+  return this.save();
+};
+
 
 // Instance method to update location
 busSchema.methods.updateLocation = function(latitude, longitude, heading, speed) {
