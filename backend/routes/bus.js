@@ -87,8 +87,8 @@ router.get('/:busNumber', async (req, res) => {
 
     // Find the bus by its busNumber
     const bus = await Bus.findOne({ busNumber: busNumber })
-      // .populate('routeId', 'name code')
-      // .populate('driverId', 'name licenseNumber phone');
+      .populate('routeId', 'name code')
+      .populate('driverId', 'name phone');
 
     if (!bus) {
       return res.status(404).json({
