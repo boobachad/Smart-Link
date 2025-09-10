@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongooseLeanVirtuals = require("mongoose-lean-virtuals");
 
 // Define the route schema
 const routeSchema = new mongoose.Schema({
@@ -478,7 +479,7 @@ routeSchema.statics.updateRouteConnectivity = async function(routeId) {
   const Stop = require('./stop');
   
   try {
-    const route = await this.findById(routeId).populate('startStation.stationId endStation.stationId');
+    const route = await this.findById(routeId).populate('startStation.stationId endStation.stationId').lean({virtuals: true});
     if (!route) {
       throw new Error(`Route with ID ${routeId} not found`);
     }
@@ -726,6 +727,7 @@ routeSchema.statics.deleteRouteWithConnectivity = async function(routeId) {
 };
 
 // Create and export the model
+routeSchema.plugin(mongooseLeanVirtuals);
 const Route = mongoose.model('Route', routeSchema);
 
 module.exports = Route;

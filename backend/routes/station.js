@@ -46,7 +46,7 @@ router.get('/', verifyUser, async (req, res) => {
       Station.find()
         .skip(skip)
         .limit(limit)
-        .lean()
+        .lean({virtuals: true})
     ]);
 
     // Extract counts from aggregation result

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongooseLeanVirtuals = require('mongoose-lean-virtuals');
 
 // Define the stop schema - specialized for bus stops only
 const stopSchema = new mongoose.Schema({
@@ -181,7 +182,7 @@ stopSchema.statics.findByRoute = function(routeId) {
   return this.find({ 
     'routes.routeId': routeId,
     status: 'active'
-  }).populate('routes.routeId');
+  });
 };
 
 // Instance method to add route
@@ -261,6 +262,7 @@ stopSchema.methods.addPeakHour = function(start, end, averagePassengers) {
 };
 
 // Create and export the model
+stopSchema.plugin(mongooseLeanVirtuals);
 const Stop = mongoose.model('Stop', stopSchema);
 
 module.exports = Stop;

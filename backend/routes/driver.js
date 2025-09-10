@@ -114,7 +114,7 @@ router.get('/', verifyUser, async (req, res) => {
         .limit(limit)
         .populate('assignedBus', 'busNumber currentStatus')
         .sort({ createdAt: -1 })
-        .lean()
+        .lean({virtuals: true})
     ]);
 
     const totalDrivers = await Driver.countDocuments(filter);
@@ -163,7 +163,8 @@ router.get('/:id', verifyUser, async (req, res) => {
 
     const driver = await Driver.findById(req.params.id)
       .populate('assignedBus', 'busNumber currentStatus routeId')
-      .populate('assignedBus.routeId', 'name code');
+      .populate('assignedBus.routeId', 'name code')
+      .lean({virtuals: true});
 
     if (!driver) {
       return res.status(404).json({
@@ -217,6 +218,7 @@ router.get('/status/:status', verifyUser, async (req, res) => {
 
     const drivers = await Driver.find(filter)
       .populate('assignedBus', 'busNumber currentStatus')
+      .lean({virtuals: true})
       .sort({ name: 1 });
 
     res.json({
@@ -390,8 +392,8 @@ router.put('/:id', verifyUser, validateDriver, async (req, res) => {
     await driver.save();
 
     // Populate the assignedBus field for response
-    await driver.populate('assignedBus', 'busNumber currentStatus routeId');
-    await driver.populate('assignedBus.routeId', 'name code');
+    await driver.populate('assignedBus', 'busNumber currentStatus routeId').lean({virtuals: true});
+    await driver.populate('assignedBus.routeId', 'name code').lean({virtuals: true});
 
     res.json({
       success: true,

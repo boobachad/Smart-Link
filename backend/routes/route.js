@@ -26,7 +26,7 @@ router.get('/', verifyUser, async (req, res) => {
     const routes = await Route.find()
       .skip(skip)
       .limit(limit)
-      .lean();
+      .lean({virtuals: true});
 
     res.json({
       success: true,
@@ -42,6 +42,37 @@ router.get('/', verifyUser, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch routes',
+      details: err.message
+    });
+  }
+});
+
+router.get('/:code', verifyUser, async (req, res) => {
+  try {
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const route = await Route.findOne({ code: req.params.code })
+      .populate('assignedBuses', 'busNumber')
+      .lean({virtuals: true});
+    if (!route) {
+      return res.status(404).json({
+        success: false,
+        error: 'Route not found'
+      });
+    }
+    res.json({
+      success: true,
+      data: route
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch route',
       details: err.message
     });
   }
@@ -476,12 +507,19 @@ router.put('/:routeCode/unassign-bus', verifyUser, async (req, res) => {
 });
 
 // GET - Get list of buses assigned to a route (by route code)
-router.get('/:routeCode/assigned-buses', async (req, res) => {
+router.get('/:routeCode/assigned-buses', verifyUser, async (req, res) => {
   try {
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+    
     const { routeCode } = req.params;
 
     // Find the route by code
-    const route = await Route.findOne({ code: routeCode }).populate('assignedBuses', "busNumber driverId currentStatus tracking.deviceId");
+    const route = await Route.findOne({ code: routeCode }).populate('assignedBuses', "busNumber driverId currentStatus tracking.deviceId").lean({virtuals: true});
     if (!route) {
       return res.status(404).json({
         success: false,

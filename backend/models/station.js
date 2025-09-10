@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongooseLeanVirtuals = require('mongoose-lean-virtuals');
 
 // Define the station schema - specialized for stations only
 const stationSchema = new mongoose.Schema({
@@ -226,7 +227,7 @@ stationSchema.statics.findByRoute = function(routeId) {
   return this.find({ 
     'routes.routeId': routeId,
     status: 'active'
-  }).populate('routes.routeId');
+  });
 };
 
 // Instance method to add route
@@ -269,6 +270,7 @@ stationSchema.methods.isAccessible = function() {
 };
 
 // Create and export the model
+stationSchema.plugin(mongooseLeanVirtuals);
 const Station = mongoose.model('Station', stationSchema);
 
 module.exports = Station;

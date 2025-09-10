@@ -26,7 +26,7 @@ router.get('/', verifyUser, async (req, res) => {
     const stops = await Stop.find()
       .skip(skip)
       .limit(limit)
-      .lean();
+      .lean({virtuals: true});
 
     res.json({
       success: true,
