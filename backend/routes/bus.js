@@ -47,6 +47,7 @@ router.get('/', verifyUser, async (req, res) => {
         .skip(skip)
         .limit(limit)
         .populate('routeId', 'name') // Populate only route name
+        .populate('driverId', 'name')
         .lean()
     ]);
 

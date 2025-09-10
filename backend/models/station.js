@@ -119,6 +119,16 @@ const stationSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Route',
       required: true
+    },
+    position: {
+      type: String,
+      enum: ['start', 'end', 'intermediate'],
+      required: true
+    },
+    sequence: {
+      type: Number,
+      required: true,
+      min: 1
     }
   }],
   
@@ -220,19 +230,18 @@ stationSchema.statics.findByRoute = function(routeId) {
 };
 
 // Instance method to add route
-stationSchema.methods.addRoute = function(routeId, routeName, direction, sequence) {
+stationSchema.methods.addRoute = function(routeId, position, sequence) {
   const existingRoute = this.routes.find(route => 
     route.routeId.toString() === routeId.toString()
   );
   
   if (existingRoute) {
-    throw new Error('Route already exists for this direction');
+    throw new Error('Route already exists for this station');
   }
   
   this.routes.push({
     routeId: routeId,
-    routeName: routeName,
-    direction: direction,
+    position: position,
     sequence: sequence
   });
   
@@ -240,7 +249,7 @@ stationSchema.methods.addRoute = function(routeId, routeName, direction, sequenc
 };
 
 // Instance method to remove route
-stationSchema.methods.removeRoute = function(routeId, direction) {
+stationSchema.methods.removeRoute = function(routeId) {
   this.routes = this.routes.filter(route => 
     !(route.routeId.toString() === routeId.toString())
   );

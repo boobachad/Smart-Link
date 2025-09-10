@@ -109,12 +109,17 @@ router.post('/', verifyUser, async (req, res) => {
       });
     }
 
-    const route = new Route(routeData);
-    await route.save();
+    // Create route with automatic connectivity management
+    const route = await Route.createRouteWithConnectivity(routeData);
     
     res.status(201).json({
       success: true,
-      message: 'Route created successfully'
+      message: 'Route created successfully',
+      data: {
+        routeId: route._id,
+        routeCode: route.code,
+        routeName: route.name
+      }
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -499,6 +504,251 @@ router.get('/:routeCode/assigned-buses', async (req, res) => {
   }
 });
 
+// POST - Add intermediate point to route with connectivity (Admin only)
+router.post('/:routeCode/intermediate-points', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
 
+    const { routeCode } = req.params;
+    const { pointId, pointType, pointName, sequence, arrivalTime, departureTime, haltTime = 0, isOptional = false } = req.body;
+
+    // Validate required fields
+    const requiredFields = ['pointId', 'pointType', 'pointName', 'sequence', 'arrivalTime', 'departureTime'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields',
+        missingFields: missingFields
+      });
+    }
+
+    // Validate pointType
+    if (!['station', 'stop'].includes(pointType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid pointType. Must be "station" or "stop"'
+      });
+    }
+
+    // Find route by code
+    const route = await Route.findOne({ code: routeCode });
+    if (!route) {
+      return res.status(404).json({
+        success: false,
+        error: 'Route not found'
+      });
+    }
+
+    // Add intermediate point with connectivity
+    await route.addIntermediatePointWithConnectivity(
+      pointId, pointType, pointName, sequence, arrivalTime, departureTime, haltTime, isOptional
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Intermediate point added successfully with connectivity',
+      data: {
+        routeId: route._id,
+        routeCode: route.code,
+        pointId: pointId,
+        pointType: pointType,
+        pointName: pointName,
+        sequence: sequence
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to add intermediate point',
+      message: error.message
+    });
+  }
+});
+
+// DELETE - Remove intermediate point from route with connectivity (Admin only)
+router.delete('/:routeCode/intermediate-points/:pointId', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const { routeCode, pointId } = req.params;
+
+    // Find route by code
+    const route = await Route.findOne({ code: routeCode });
+    if (!route) {
+      return res.status(404).json({
+        success: false,
+        error: 'Route not found'
+      });
+    }
+
+    // Remove intermediate point with connectivity
+    await route.removeIntermediatePointWithConnectivity(pointId);
+
+    res.json({
+      success: true,
+      message: 'Intermediate point removed successfully with connectivity',
+      data: {
+        routeId: route._id,
+        routeCode: route.code,
+        pointId: pointId
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to remove intermediate point',
+      message: error.message
+    });
+  }
+});
+
+// PUT - Update route with connectivity refresh (Admin only)
+router.put('/:routeCode', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const { routeCode } = req.params;
+    const updateData = req.body;
+
+    // Find route by code
+    const route = await Route.findOne({ code: routeCode });
+    if (!route) {
+      return res.status(404).json({
+        success: false,
+        error: 'Route not found'
+      });
+    }
+
+    // Update route with connectivity refresh
+    await route.updateRouteWithConnectivity(updateData);
+
+    res.json({
+      success: true,
+      message: 'Route updated successfully with connectivity refresh',
+      data: {
+        routeId: route._id,
+        routeCode: route.code,
+        routeName: route.name
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update route',
+      message: error.message
+    });
+  }
+});
+
+// DELETE - Delete route with connectivity cleanup (Admin only)
+router.delete('/:routeCode', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const { routeCode } = req.params;
+
+    // Find route by code first to get the ID
+    const route = await Route.findOne({ code: routeCode });
+    if (!route) {
+      return res.status(404).json({
+        success: false,
+        error: 'Route not found'
+      });
+    }
+
+    // Delete route with connectivity cleanup
+    const result = await Route.deleteRouteWithConnectivity(route._id);
+
+    res.json({
+      success: true,
+      message: result.message,
+      data: {
+        routeId: route._id,
+        routeCode: route.code,
+        routeName: route.name
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete route',
+      message: error.message
+    });
+  }
+});
+
+// POST - Update route connectivity manually (Admin only)
+router.post('/update-connectivitys', verifyUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    // Find route by code first to get the ID
+    const routes = await Route.find({ connectivityUpdated: false });
+    if (!routes) {
+      return res.status(201).json({
+        success: true,
+        message: 'All routes connectivity are up to date.'
+      })
+      ;
+    }
+
+    let failedRoutes = [];
+
+    for (const route of routes) {
+      try {
+        await Route.updateRouteConnectivity(route._id);
+      } catch (error) {
+        failedRoutes.push({ routeCode: route.code, error: error.message });
+      }
+    }
+    
+
+    // Update route connectivity
+
+    res.json({
+      success: true,
+      message: ` ${routes.length - failedRoutes.length} Routes connectivity updated successfully.`,
+      failedRoutes: failedRoutes
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update route connectivity',
+      message: error.message
+    });
+  }
+});
 
 module.exports = router;
