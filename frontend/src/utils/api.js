@@ -19,3 +19,38 @@ export const dashboardStats = async () => {
     });
     return res.data;
 }
+
+export const getBusDataById = async (id) => {
+    try {
+        const res = await axios.get(`http://localhost:5000/api/buses/${id}`, {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem("userAuth")}`,
+            },
+        });
+        return res.data;
+    } catch (err) {
+        console.error("API error:", err.response?.data || err.message);
+        throw err;
+    }
+}
+
+export const updateBusData = async (id, busData) => {
+    console.log("API Update Payload:", id,busData);
+    const res = await axios.patch(`http://localhost:5000/api/buses/${id}`, busData, {
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem("userAuth")}`,
+        },
+    })
+    return res.data.bus;
+}
+
+// export const getDriverData = async() => {
+
+//     const res = await axios.get(`${API_BASE_URL}/api/drivers?limit=1000`, {
+//         params: { page, pageSize },
+//         headers: {
+//             Authorization: `Bearer ${localStorage.getItem("userAuth")}`
+//         },
+//     });
+//     return res.data;
+// }

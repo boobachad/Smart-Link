@@ -14,7 +14,8 @@ function BusPageLoadingSkeleton() {
                     </button>
                 </div>
 
-                <div className="grid grid-cols-3 gap-14 mb-8">
+                <div className="grid grid-cols-4 gap-14 mb-8">
+                    <div className="h-28 bg-gray-200 rounded-lg"></div>
                     <div className="h-28 bg-gray-200 rounded-lg"></div>
                     <div className="h-28 bg-gray-200 rounded-lg"></div>
                     <div className="h-28 bg-gray-200 rounded-lg"></div>
