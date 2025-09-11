@@ -44,13 +44,9 @@ export const updateBusData = async (id, busData) => {
     return res.data.bus;
 }
 
-// export const getDriverData = async() => {
-
-//     const res = await axios.get(`${API_BASE_URL}/api/drivers?limit=1000`, {
-//         params: { page, pageSize },
-//         headers: {
-//             Authorization: `Bearer ${localStorage.getItem("userAuth")}`
-//         },
-//     });
-//     return res.data;
-// }
+export const getStation = async(page = 1, limit = 1000) => {
+    const res = await axios.get(`${API_BASE_URL}/api/stations`, {
+        params: { page, limit }
+    });
+    return res.data;
+}
