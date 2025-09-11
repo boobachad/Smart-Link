@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongooseLeanVirtuals = require('mongoose-lean-virtuals');
 
 // Define the station schema - specialized for stations only
 const stationSchema = new mongoose.Schema({
@@ -119,6 +120,16 @@ const stationSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Route',
       required: true
+    },
+    position: {
+      type: String,
+      enum: ['start', 'end', 'intermediate'],
+      required: true
+    },
+    sequence: {
+      type: Number,
+      required: true,
+      min: 1
     }
   }],
   
@@ -216,23 +227,22 @@ stationSchema.statics.findByRoute = function(routeId) {
   return this.find({ 
     'routes.routeId': routeId,
     status: 'active'
-  }).populate('routes.routeId');
+  });
 };
 
 // Instance method to add route
-stationSchema.methods.addRoute = function(routeId, routeName, direction, sequence) {
+stationSchema.methods.addRoute = function(routeId, position, sequence) {
   const existingRoute = this.routes.find(route => 
     route.routeId.toString() === routeId.toString()
   );
   
   if (existingRoute) {
-    throw new Error('Route already exists for this direction');
+    throw new Error('Route already exists for this station');
   }
   
   this.routes.push({
     routeId: routeId,
-    routeName: routeName,
-    direction: direction,
+    position: position,
     sequence: sequence
   });
   
@@ -240,7 +250,7 @@ stationSchema.methods.addRoute = function(routeId, routeName, direction, sequenc
 };
 
 // Instance method to remove route
-stationSchema.methods.removeRoute = function(routeId, direction) {
+stationSchema.methods.removeRoute = function(routeId) {
   this.routes = this.routes.filter(route => 
     !(route.routeId.toString() === routeId.toString())
   );
@@ -260,6 +270,7 @@ stationSchema.methods.isAccessible = function() {
 };
 
 // Create and export the model
+stationSchema.plugin(mongooseLeanVirtuals);
 const Station = mongoose.model('Station', stationSchema);
 
 module.exports = Station;

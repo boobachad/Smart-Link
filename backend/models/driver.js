@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongooseLeanVirtuals = require('mongoose-lean-virtuals');
 
 const driverSchema = new mongoose.Schema({
   name: {
@@ -53,6 +54,7 @@ const driverSchema = new mongoose.Schema({
   }
 });
 
+driverSchema.plugin(mongooseLeanVirtuals);
 const Driver = mongoose.model('Driver', driverSchema);
 
 module.exports = Driver;

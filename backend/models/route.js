@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongooseLeanVirtuals = require("mongoose-lean-virtuals");
 
 // Define the route schema
 const routeSchema = new mongoose.Schema({
@@ -146,6 +147,11 @@ const routeSchema = new mongoose.Schema({
     type: String,
     enum: ['active', 'inactive', 'suspended', 'maintenance'],
     default: 'active'
+  },
+
+  connectivityUpdated: {
+    type: Boolean,
+    default: false
   },
   
   // Fare information
@@ -312,55 +318,6 @@ routeSchema.statics.findUnassignedRoutes = function() {
   });
 };
 
-// Instance method to add intermediate point
-routeSchema.methods.addIntermediatePoint = function(pointId, pointType, pointName, sequence, arrivalTime, departureTime, haltTime = 0, isOptional = false) {
-  const existingPoint = this.intermediatePoints.find(point => 
-    point.pointId.toString() === pointId.toString()
-  );
-  
-  if (existingPoint) {
-    throw new Error('Point already exists in route');
-  }
-  
-  this.intermediatePoints.push({
-    pointId: pointId,
-    pointType: pointType,
-    pointName: pointName,
-    sequence: sequence,
-    arrivalTime: arrivalTime,
-    departureTime: departureTime,
-    haltTime: haltTime,
-    isOptional: isOptional
-  });
-  
-  // Sort by sequence
-  this.intermediatePoints.sort((a, b) => a.sequence - b.sequence);
-  
-  return this.save();
-};
-
-// Instance method to remove intermediate point
-routeSchema.methods.removeIntermediatePoint = function(pointId) {
-  this.intermediatePoints = this.intermediatePoints.filter(point => 
-    point.pointId.toString() !== pointId.toString()
-  );
-  return this.save();
-};
-
-// Instance method to update point timing
-routeSchema.methods.updatePointTiming = function(pointId, arrivalTime, departureTime, haltTime) {
-  const point = this.intermediatePoints.find(p => p.pointId.toString() === pointId.toString());
-  if (!point) {
-    throw new Error('Point not found in route');
-  }
-  
-  point.arrivalTime = arrivalTime;
-  point.departureTime = departureTime;
-  point.haltTime = haltTime;
-  
-  return this.save();
-};
-
 // Instance method to add peak hour
 routeSchema.methods.addPeakHour = function(start, end, days) {
   this.peakHours.push({
@@ -377,35 +334,6 @@ routeSchema.methods.removePeakHour = function(start, end, days) {
     !(peak.start === start && peak.end === end && 
       JSON.stringify(peak.days.sort()) === JSON.stringify(days.sort()))
   );
-  return this.save();
-};
-
-// Instance method to get next trip time
-routeSchema.methods.getNextTripTime = function(currentTime) {
-  const currentMinutes = parseInt(currentTime.split(':')[0]) * 60 + parseInt(currentTime.split(':')[1]);
-  const frequency = this.currentFrequency;
-  
-  // Calculate next trip time
-  const nextTripMinutes = Math.ceil(currentMinutes / frequency) * frequency;
-  const hours = Math.floor(nextTripMinutes / 60);
-  const minutes = nextTripMinutes % 60;
-  
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-};
-
-// Instance method to calculate fare for distance
-routeSchema.methods.calculateFare = function(distance) {
-  const fare = this.fare.baseFare + (distance * this.fare.farePerKm);
-  return this.fare.maxFare ? Math.min(fare, this.fare.maxFare) : fare;
-};
-
-// Instance method to update analytics
-routeSchema.methods.updateAnalytics = function(passengers, onTime, speed, revenue) {
-  if (passengers !== undefined) this.analytics.averagePassengers = passengers;
-  if (onTime !== undefined) this.analytics.onTimePercentage = onTime;
-  if (speed !== undefined) this.analytics.averageSpeed = speed;
-  if (revenue !== undefined) this.analytics.revenue = revenue;
-  
   return this.save();
 };
 
@@ -446,7 +374,360 @@ routeSchema.methods.isBusAssigned = function(busId) {
   );
 };
 
+// Comprehensive method to create route with full connectivity management
+routeSchema.statics.createRouteWithConnectivity = async function(routeData) {
+  const Station = require('./station');
+  const Stop = require('./stop');
+  
+  try {
+    // Create the route first
+    const route = new this(routeData);
+    await route.save();
+    
+    // Update start station connectivity
+    await this.updateStationConnectivity(route.startStation.stationId, route._id, 'start', 1);
+    
+    // Update end station connectivity
+    await this.updateStationConnectivity(route.endStation.stationId, route._id, 'end', route.intermediatePoints.length + 2);
+    
+    // Update intermediate points connectivity
+    for (let i = 0; i < route.intermediatePoints.length; i++) {
+      const point = route.intermediatePoints[i];
+      const sequence = i + 2; // +2 because start=1, end=last
+      
+      if (point.pointType === 'station') {
+        await this.updateStationConnectivity(point.pointId, route._id, 'intermediate', sequence);
+      } else if (point.pointType === 'stop') {
+        await this.updateStopConnectivity(point.pointId, route._id, 'intermediate', sequence);
+      }
+    }
+    
+    // Update connectivity between all points in the route
+    await this.updateRouteConnectivity(route._id);
+    
+    return route;
+  } catch (error) {
+    // If anything fails, clean up the created route
+    await this.findByIdAndDelete(route._id);
+    throw error;
+  }
+};
+
+// Method to update station connectivity when adding route
+routeSchema.statics.updateStationConnectivity = async function(stationId, routeId, position, sequence) {
+  const Station = require('./station');
+  
+  try {
+    const station = await Station.findById(stationId);
+    if (!station) {
+      throw new Error(`Station with ID ${stationId} not found`);
+    }
+    
+    // Add route to station if not already present
+    const existingRoute = station.routes.find(route => 
+      route.routeId.toString() === routeId.toString()
+    );
+    
+    if (!existingRoute) {
+      station.routes.push({
+        routeId: routeId,
+        position: position,
+        sequence: sequence
+      });
+      await station.save();
+    }
+    
+    return station;
+  } catch (error) {
+    throw new Error(`Failed to update station connectivity: ${error.message}`);
+  }
+};
+
+// Method to update stop connectivity when adding route
+routeSchema.statics.updateStopConnectivity = async function(stopId, routeId, position, sequence) {
+  const Stop = require('./stop');
+  
+  try {
+    const stop = await Stop.findById(stopId);
+    if (!stop) {
+      throw new Error(`Stop with ID ${stopId} not found`);
+    }
+    
+    // Add route to stop if not already present
+    const existingRoute = stop.routes.find(route => 
+      route.routeId.toString() === routeId.toString()
+    );
+    
+    if (!existingRoute) {
+      stop.routes.push({
+        routeId: routeId,
+        position: position,
+        sequence: sequence
+      });
+      await stop.save();
+    }
+    
+    return stop;
+  } catch (error) {
+    throw new Error(`Failed to update stop connectivity: ${error.message}`);
+  }
+};
+
+// Method to update connectivity between all points in a route
+routeSchema.statics.updateRouteConnectivity = async function(routeId) {
+  const Station = require('./station');
+  const Stop = require('./stop');
+  
+  try {
+    const route = await this.findById(routeId).populate('startStation.stationId endStation.stationId').lean({virtuals: true});
+    if (!route) {
+      throw new Error(`Route with ID ${routeId} not found`);
+    }
+    
+    // Get all points in the route in sequence
+    const allPoints = [
+      { id: route.startStation.stationId, type: 'station', name: route.startStation.stationName },
+      ...route.intermediatePoints.map(point => ({
+        id: point.pointId,
+        type: point.pointType,
+        name: point.pointName
+      })),
+      { id: route.endStation.stationId, type: 'station', name: route.endStation.stationName }
+    ];
+    
+    // Update connectivity between consecutive points
+    for (let i = 0; i < allPoints.length - 1; i++) {
+      const currentPoint = allPoints[i];
+      const nextPoint = allPoints[i + 1];
+      
+      // Calculate distance and walking time between points
+      const currentLocation = await this.getPointLocation(currentPoint.id, currentPoint.type);
+      const nextLocation = await this.getPointLocation(nextPoint.id, nextPoint.type);
+      
+      if (currentLocation && nextLocation) {
+        const distance = this.calculateDistance(currentLocation, nextLocation);
+        const walkingTime = this.calculateWalkingTime(distance);
+        
+        // Update connectivity for current point
+        await this.updatePointConnectivity(
+          currentPoint.id, 
+          currentPoint.type, 
+          nextPoint.id, 
+          nextPoint.type, 
+          distance, 
+          walkingTime
+        );
+        
+        // Update connectivity for next point (bidirectional)
+        await this.updatePointConnectivity(
+          nextPoint.id, 
+          nextPoint.type, 
+          currentPoint.id, 
+          currentPoint.type, 
+          distance, 
+          walkingTime
+        );
+      }
+    }
+
+    route.connectivityUpdated = true;
+    await route.save();
+    
+  } catch (error) {
+    throw new Error(`Failed to update route connectivity: ${error.message}`);
+  }
+};
+
+// Helper method to get location of a point (station or stop)
+routeSchema.statics.getPointLocation = async function(pointId, pointType) {
+  const Station = require('./station');
+  const Stop = require('./stop');
+  
+  try {
+    if (pointType === 'station') {
+      const station = await Station.findById(pointId);
+      return station ? station.location : null;
+    } else if (pointType === 'stop') {
+      const stop = await Stop.findById(pointId);
+      return stop ? stop.location : null;
+    }
+    return null;
+  } catch (error) {
+    return null;
+  }
+};
+
+// Helper method to calculate distance between two points
+routeSchema.statics.calculateDistance = function(point1, point2) {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = point1.latitude * Math.PI / 180;
+  const φ2 = point2.latitude * Math.PI / 180;
+  const Δφ = (point2.latitude - point1.latitude) * Math.PI / 180;
+  const Δλ = (point2.longitude - point1.longitude) * Math.PI / 180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c; // Distance in meters
+};
+
+// Helper method to calculate walking time based on distance
+routeSchema.statics.calculateWalkingTime = function(distance) {
+  const averageWalkingSpeed = 1.4; // m/s (5 km/h)
+  return Math.ceil(distance / (averageWalkingSpeed * 60)); // Convert to minutes
+};
+
+// Helper method to update connectivity between two points
+routeSchema.statics.updatePointConnectivity = async function(pointId, pointType, connectedPointId, connectedPointType, distance, walkingTime) {
+  const Station = require('./station');
+  const Stop = require('./stop');
+  
+  try {
+    if (pointType === 'station') {
+      const station = await Station.findById(pointId);
+      if (station) {
+        // Check if connection already exists
+        const existingConnection = station.connectivity.nearbyStations.find(
+          conn => conn.stationId.toString() === connectedPointId.toString()
+        );
+        
+        if (!existingConnection) {
+          station.connectivity.nearbyStations.push({
+            stationId: connectedPointId,
+            distance: distance,
+            walkingTime: walkingTime
+          });
+          await station.save();
+        }
+      }
+    } else if (pointType === 'stop') {
+      const stop = await Stop.findById(pointId);
+      if (stop) {
+        // Check if connection already exists
+        const existingConnection = stop.nearbyStops.find(
+          conn => conn.stopId.toString() === connectedPointId.toString()
+        );
+        
+        if (!existingConnection) {
+          stop.nearbyStops.push({
+            stopId: connectedPointId,
+            distance: distance,
+            walkingTime: walkingTime
+          });
+          await stop.save();
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`Failed to update connectivity for ${pointType} ${pointId}:`, error.message);
+  }
+};
+
+// Enhanced method to add intermediate point with connectivity updates
+routeSchema.methods.addIntermediatePointWithConnectivity = async function(pointId, pointType, pointName, sequence, arrivalTime, departureTime, haltTime = 0, isOptional = false) {
+  try {
+    // Add the intermediate point
+    await this.addIntermediatePoint(pointId, pointType, pointName, sequence, arrivalTime, departureTime, haltTime, isOptional);
+    
+    // Update connectivity for the new point
+    if (pointType === 'station') {
+      await this.constructor.updateStationConnectivity(pointId, this._id, 'intermediate', sequence);
+    } else if (pointType === 'stop') {
+      await this.constructor.updateStopConnectivity(pointId, this._id, 'intermediate', sequence);
+    }
+    
+    // Update route connectivity to include the new point
+    await this.constructor.updateRouteConnectivity(this._id);
+    
+    return this;
+  } catch (error) {
+    throw new Error(`Failed to add intermediate point with connectivity: ${error.message}`);
+  }
+};
+
+// Method to remove intermediate point and update connectivity
+routeSchema.methods.removeIntermediatePointWithConnectivity = async function(pointId) {
+  try {
+    const point = this.intermediatePoints.find(p => p.pointId.toString() === pointId.toString());
+    if (!point) {
+      throw new Error('Point not found in route');
+    }
+    
+    // Remove the point from route
+    await this.removeIntermediatePoint(pointId);
+    
+    // Update connectivity by recalculating the entire route
+    await this.constructor.updateRouteConnectivity(this._id);
+    
+    return this;
+  } catch (error) {
+    throw new Error(`Failed to remove intermediate point with connectivity: ${error.message}`);
+  }
+};
+
+// Method to update route and refresh all connectivity
+routeSchema.methods.updateRouteWithConnectivity = async function(updateData) {
+  try {
+    // Update the route
+    Object.assign(this, updateData);
+    await this.save();
+    
+    // Refresh all connectivity
+    await this.constructor.updateRouteConnectivity(this._id);
+    
+    return this;
+  } catch (error) {
+    throw new Error(`Failed to update route with connectivity: ${error.message}`);
+  }
+};
+
+// Method to delete route and clean up all connectivity
+routeSchema.statics.deleteRouteWithConnectivity = async function(routeId) {
+  const Station = require('./station');
+  const Stop = require('./stop');
+  
+  try {
+    const route = await this.findById(routeId);
+    if (!route) {
+      throw new Error(`Route with ID ${routeId} not found`);
+    }
+    
+    // Remove route from all stations
+    await Station.updateMany(
+      { 'routes.routeId': routeId },
+      { $pull: { routes: { routeId: routeId } } }
+    );
+    
+    // Remove route from all stops
+    await Stop.updateMany(
+      { 'routes.routeId': routeId },
+      { $pull: { routes: { routeId: routeId } } }
+    );
+    
+    // Remove connectivity entries for this route
+    await Station.updateMany(
+      {},
+      { $pull: { 'connectivity.nearbyStations': { stationId: { $in: route.intermediatePoints.map(p => p.pointId) } } } }
+    );
+    
+    await Stop.updateMany(
+      {},
+      { $pull: { 'nearbyStops': { stopId: { $in: route.intermediatePoints.map(p => p.pointId) } } } }
+    );
+    
+    // Delete the route
+    await this.findByIdAndDelete(routeId);
+    
+    return { message: 'Route deleted successfully with connectivity cleanup' };
+  } catch (error) {
+    throw new Error(`Failed to delete route with connectivity: ${error.message}`);
+  }
+};
+
 // Create and export the model
+routeSchema.plugin(mongooseLeanVirtuals);
 const Route = mongoose.model('Route', routeSchema);
 
 module.exports = Route;

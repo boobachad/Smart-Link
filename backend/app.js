@@ -10,12 +10,19 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 
 // MongoDB Connection
+
+const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/smart-link';
+mongoose.connect(mongoURI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+}).then(() => {
+=======
 const mongoURI = process.env.MONGODB_URI;
 mongoose.connect(mongoURI).then(() => {
   console.log('MongoDB connected');
 }).catch(err => {
   console.error('MongoDB connection error:', err);
-});
+})
 
 
 const indexRouter = require('./routes/index');

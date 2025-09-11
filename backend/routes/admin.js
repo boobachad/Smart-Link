@@ -9,10 +9,6 @@ const stop = require('../models/stop');
 const User = require('../models/user');
 
 /* GET admin page. */
-router.get('/', function (req, res, next) {
-    res.send('Admin panel - respond with admin resource');
-});
-
 router.get("/dashboard", verifyUser, async (req, res) => {
     // Check if the authenticated user has the 'admin' custom claim
     if (req.user && req.user.admin === true) {

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongooseLeanVirtuals = require('mongoose-lean-virtuals');
 
 // Define the bus schema
 const busSchema = new mongoose.Schema({
@@ -193,16 +194,12 @@ busSchema.virtual('hasDriver').get(function() {
 });
 
 // Pre-save middleware to update lastSeen when location is updated
-busSchema.pre('save', function(next) {
+busSchema.pre('save', async function(next) {
   if (this.isModified('location.latitude') || this.isModified('location.longitude')) {
     this.location.lastUpdated = new Date();
     this.tracking.lastSeen = new Date();
   }
-  next();
-});
 
-// Pre-save middleware to handle driver assignment
-busSchema.pre('save', async function(next) {
   // Only run this middleware if driverId is being modified
   if (this.isModified('driverId')) {
     try {
@@ -220,11 +217,7 @@ busSchema.pre('save', async function(next) {
       // Don't throw error to prevent save failure
     }
   }
-  next();
-});
 
-// Pre-save middleware to handle route assignment
-busSchema.pre('save', async function(next) {
   // Only run this middleware if routeId is being modified
   if (this.isModified('routeId')) {
     try {
@@ -250,7 +243,43 @@ busSchema.pre('save', async function(next) {
       // Don't throw error to prevent save failure
     }
   }
-  next();
+});
+
+// Pre-insertMany middleware
+busSchema.pre("insertMany", async function (next, docs) {
+  try {
+    const Driver = require("./driver");
+    const Route = require("./route");
+
+    for (let doc of docs) {
+      // Ensure _id exists before insert
+      if (!doc._id) doc._id = new mongoose.Types.ObjectId();
+
+      // Update lastSeen when location is present
+      if (doc.location && (doc.location.latitude || doc.location.longitude)) {
+        doc.location.lastUpdated = new Date();
+        if (!doc.tracking) doc.tracking = {};
+        doc.tracking.lastSeen = new Date();
+      }
+
+      // Assign driver
+      if (doc.driverId) {
+        await Driver.findByIdAndUpdate(doc.driverId, { assignedBus: doc._id });
+      }
+
+      // Assign route
+      if (doc.routeId) {
+        await Route.findByIdAndUpdate(
+          doc.routeId,
+          { $addToSet: { assignedBuses: doc._id } }
+        );
+      }
+    }
+
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
 
@@ -275,14 +304,14 @@ busSchema.statics.findByRoute = function(routeId) {
   return this.find({ 
     routeId: routeId,
     currentStatus: 'active'
-  }).populate('routeId');
+  }).populate('routeId').lean({virtuals: true});
 };
 
 // Static method to find buses by driver
 busSchema.statics.findByDriver = function(driverId) {
   return this.find({ 
     driverId: driverId
-  }).populate('driverId');
+  })
 };
 
 // Static method to find buses without drivers
@@ -423,6 +452,7 @@ busSchema.methods.endTrip = function() {
 };
 
 // Create and export the model
+busSchema.plugin(mongooseLeanVirtuals);
 const Bus = mongoose.model('Bus', busSchema);
 
 module.exports = Bus;

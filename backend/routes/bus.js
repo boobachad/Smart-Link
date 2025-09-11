@@ -47,7 +47,8 @@ router.get('/', verifyUser, async (req, res) => {
         .skip(skip)
         .limit(limit)
         .populate('routeId', 'name') // Populate only route name
-        .lean()
+        .populate('driverId', 'name')
+        .lean({virtuals: true})
     ]);
 
     // Extract counts from aggregation result
@@ -79,6 +80,43 @@ router.get('/', verifyUser, async (req, res) => {
   }
 });
 
+// GET - Get a single bus by its bus number
+router.get('/:busNumber', verifyUser, async (req, res) => {
+  try {
+    if (!req.user || !req.user.admin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const { busNumber } = req.params;
+
+    // Find the bus by its busNumber
+    const bus = await Bus.findOne({ busNumber: busNumber })
+      .populate('routeId', 'name code')
+      .populate('driverId', 'name phone')
+      .lean({virtuals: true});
+
+    if (!bus) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bus not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: bus
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch bus',
+      details: err.message
+    });
+  }
+});
 
 
 // POST - Add a single bus (Admin only)
