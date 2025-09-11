@@ -10,7 +10,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 
 // MongoDB Connection
-const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/smart-link';
+const mongoURI = process.env.MONGODB_URI;
 mongoose.connect(mongoURI).then(() => {
   console.log('MongoDB connected');
 }).catch(err => {
@@ -41,7 +41,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(cors({
   origin: "http://localhost:3000", // your frontend
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
