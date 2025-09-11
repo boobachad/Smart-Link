@@ -16,10 +16,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useRouter } from "next/navigation"
 
 export function DataTable({ columns, data, page, totalPages, onPageChange }) {
 
   const [sorting, setSorting] = useState([])
+  const router = useRouter();
 
   const table = useReactTable({
     data,
@@ -32,7 +34,6 @@ export function DataTable({ columns, data, page, totalPages, onPageChange }) {
     },
     manualPagination: true,
     pageCount: totalPages,
-
   })
 
   return (
@@ -60,6 +61,10 @@ export function DataTable({ columns, data, page, totalPages, onPageChange }) {
               <TableRow
                 key={row.id}
                 data-state={row.getIsSelected() && "selected"}
+                onClick={() => router.push(`/admin/buses/bus-details/${row.original.busNumber}`)}
+                className='cursor-pointer hover:bg-gray-100'
+                role="button"
+                tabIndex={0}
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
