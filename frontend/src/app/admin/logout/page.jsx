@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useEffect } from 'react'
-import { getAuth, signOut } from 'firebase/auth'
+import { signOut } from 'firebase/auth'
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from "../../firebase/config"
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 function logout() {
 
-    const auth = getAuth();
     const router = useRouter();
 
     const handleSignOut = async () => {
