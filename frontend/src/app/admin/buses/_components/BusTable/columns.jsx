@@ -96,37 +96,36 @@ export const columns = [
       });
     },
   },
-  {
-    accessorKey: "actions",
-    header: "Actions",
-    cell: ({ row }) => {
-      const busId = row.getValue("busNumber");
-      const currentStatus = row.getValue("currentStatus");
+  // {
+  //   accessorKey: "actions",
+  //   header: "Actions",
+  //   cell: ({ row }) => {
+  //     const busId = row.getValue("busNumber");
+  //     const currentStatus = row.getValue("currentStatus");
 
-      return (
-        <div className="flex gap-2 items-center">
-          {/* Update User */}
-          <EditIcon
-            size={20}
-            className="cursor-pointer"
-            onClick={() => handleUpdateUser(busId)}
-          />
+  //     return (
+  //       <div className="flex gap-2 items-center">
+  //         {/* Update User */}
+  //         <EditIcon
+  //           size={20}
+  //           className="cursor-pointer"
+  //           onClick={() => handleUpdateUser(busId)}
+  //         />
 
-          {/* Change Status Dropdown */}
-          <StatusDropDown
-            busId={busId}
-            initialStatus={currentStatus}
-          // onStatusChange={handleStatusUpdate}
-          />
+  //         {/* Change Status Dropdown */}
+  //         <StatusDropDown
+  //           busId={busId}
+  //           initialStatus={currentStatus}
+  //         // onStatusChange={handleStatusUpdate}
+  //         />
 
-          {/* Delete User */}
-          <Trash
-            size={20}
-            className="text-red-600 hover:text-red-800 cursor-pointer"
-            onClick={() => handleDeleteUser(busId)}
-          />
-        </div>
-      );
-    },
-  }
+  //         {/* Delete User */}
+  //         <Trash
+  //           size={20}
+  //           className="text-red-600 hover:text-red-800 cursor-pointer"
+  //           onClick={() => handleDeleteUser(busId)}
+  //         />
+  //       </div>
+  //     );
+  //   },
 ];
