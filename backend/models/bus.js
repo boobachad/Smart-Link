@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
-const mongooseLeanVirtuals = require('mongoose-lean-virtuals');
+const Driver = require("./driver");
 
 // Define the bus schema
 const busSchema = new mongoose.Schema({
+  _id: mongoose.Schema.Types.ObjectId,
   // Basic bus information
   busNumber: {
     type: String,
@@ -11,14 +12,39 @@ const busSchema = new mongoose.Schema({
     trim: true,
     uppercase: true
   },
-  
-  // Route information
-  routeId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Route',
-    required: true
+
+  plateNumber: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    uppercase: true
   },
-  
+
+  // Current active trip
+  currentTrip: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Trip',
+    default: null
+  },
+
+  // Day's schedule of trips
+  daySchedule: [{
+    tripId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Trip',
+      required: true
+    },
+    startTime: {
+      type: String,
+      required: true // Format: "HH:mm"
+    },
+    completed: {
+      type: Boolean,
+      default: false
+    }
+  }],
+
   // Vehicle details
   vehicleInfo: {
     make: {
@@ -51,29 +77,29 @@ const busSchema = new mongoose.Schema({
       uppercase: true
     }
   },
-  
+
   // Current status and location
   currentStatus: {
     type: String,
     enum: ['active', 'inactive', 'maintenance', 'breakdown'],
     default: 'inactive'
   },
-  
+
   // Real-time location data
   location: {
     latitude: {
       type: Number,
-      // required: function() {
-      //   return this.currentStatus === 'active';
-      // },
+      required: function() {
+        return this.currentStatus === 'active';
+      },
       min: -90,
       max: 90
     },
     longitude: {
       type: Number,
-      // required: function() {
-      //   return this.currentStatus === 'active';
-      // },
+      required: function() {
+        return this.currentStatus === 'active';
+      },
       min: -180,
       max: 180
     },
@@ -92,29 +118,13 @@ const busSchema = new mongoose.Schema({
       default: Date.now
     }
   },
-  
+
   // Driver information
   driverId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Driver'
   },
-  
-  // Schedule and timing
-  schedule: {
-    startTime: {
-      type: String, // Format: "HH:MM"
-      required: true
-    },
-    endTime: {
-      type: String, // Format: "HH:MM"
-      required: true
-    },
-    frequency: {
-      type: Number, // minutes between trips
-      default: 15
-    }
-  },
-  
+
   // Maintenance and service records
   maintenance: {
     lastServiceDate: {
@@ -133,7 +143,7 @@ const busSchema = new mongoose.Schema({
       max: 100 // percentage
     }
   },
-  
+
   // Real-time tracking metadata
   tracking: {
     isOnline: {
@@ -146,8 +156,8 @@ const busSchema = new mongoose.Schema({
     },
     deviceId: {
       type: String,
-      unique: true,
-      sparse: true
+      // unique: true,
+      // sparse: true
     },
     signalStrength: {
       type: Number,
@@ -155,7 +165,7 @@ const busSchema = new mongoose.Schema({
       max: 100
     }
   },
-  
+
   // Operational data
   operationalData: {
     totalTrips: {
@@ -184,72 +194,71 @@ const busSchema = new mongoose.Schema({
 });
 
 // Virtual for checking if bus is currently running
-busSchema.virtual('isRunning').get(function() {
+busSchema.virtual('isRunning').get(function () {
   return this.currentStatus === 'active' && this.tracking.isOnline;
 });
 
 // Virtual for checking if bus has a driver assigned
-busSchema.virtual('hasDriver').get(function() {
+busSchema.virtual('hasDriver').get(function () {
   return !!this.driverId;
 });
 
-// Pre-save middleware to update lastSeen when location is updated
-busSchema.pre('save', async function(next) {
+// Pre-save middleware for various validations and updates
+busSchema.pre('save', async function (next) {
+  const now = new Date();
+
+  // Update tracking timestamps when location changes
   if (this.isModified('location.latitude') || this.isModified('location.longitude')) {
-    this.location.lastUpdated = new Date();
-    this.tracking.lastSeen = new Date();
+    this.location.lastUpdated = now;
+    this.tracking.lastSeen = now;
   }
 
-  // Only run this middleware if driverId is being modified
+  // Handle driver assignment changes
   if (this.isModified('driverId')) {
     try {
-      const Driver = require('./driver');
-      
-      // If driverId is being set, update the driver's assignedBus
       if (this.driverId) {
-        await Driver.findByIdAndUpdate(
-          this.driverId,
-          { assignedBus: this._id }
-        );
+        // Ensure driver isn't already assigned to another bus
+        const existingBus = await this.constructor.findOne({
+          driverId: this.driverId,
+          _id: { $ne: this._id }
+        });
+
+        if (existingBus) {
+          throw new Error('Driver is already assigned to another bus');
+        }
+
+        // Update driver's assignedBus
+        await Driver.findByIdAndUpdate(this.driverId, { assignedBus: this._id });
+      } else if (this._oldDriver) {
+        // Clear previous driver's assignment
+        await Driver.findByIdAndUpdate(this._oldDriver, { $unset: { assignedBus: 1 } });
       }
     } catch (err) {
-      console.error('Failed to update driver assignment:', err.message);
-      // Don't throw error to prevent save failure
+      return next(err);
     }
   }
 
-  // Only run this middleware if routeId is being modified
-  if (this.isModified('routeId')) {
-    try {
-      const Route = require('./route');
-
-      // Remove this bus from the old route's assignedBuses, if any
-      if (this.$__.priorDoc && this.$__.priorDoc.routeId && this.$__.priorDoc.routeId.toString() !== this.routeId?.toString()) {
-        await Route.findByIdAndUpdate(
-          this.$__.priorDoc.routeId,
-          { $pull: { assignedBuses: this._id } }
-        );
-      }
-
-      // Add this bus to the new route's assignedBuses
-      if (this.routeId) {
-        await Route.findByIdAndUpdate(
-          this.routeId,
-          { $addToSet: { assignedBuses: this._id } }
-        );
-      }
-    } catch (err) {
-      console.error('Failed to update route assignment:', err.message);
-      // Don't throw error to prevent save failure
+  // Validate status changes
+  if (this.isModified('currentStatus')) {
+    if (this.currentStatus === 'active' && !this.driverId) {
+      return next(new Error('Cannot activate bus without assigned driver'));
+    }
+    if (this.currentStatus !== 'active' && this.currentTrip) {
+      return next(new Error('Cannot change status while bus is on a trip'));
     }
   }
+
+  // Store old driver ID for reference
+  if (this.isModified('driverId')) {
+    this._oldDriver = this.driverId;
+  }
+
+  next();
 });
 
 // Pre-insertMany middleware
 busSchema.pre("insertMany", async function (next, docs) {
   try {
-    const Driver = require("./driver");
-    const Route = require("./route");
 
     for (let doc of docs) {
       // Ensure _id exists before insert
@@ -266,14 +275,6 @@ busSchema.pre("insertMany", async function (next, docs) {
       if (doc.driverId) {
         await Driver.findByIdAndUpdate(doc.driverId, { assignedBus: doc._id });
       }
-
-      // Assign route
-      if (doc.routeId) {
-        await Route.findByIdAndUpdate(
-          doc.routeId,
-          { $addToSet: { assignedBuses: doc._id } }
-        );
-      }
     }
 
     next();
@@ -282,87 +283,8 @@ busSchema.pre("insertMany", async function (next, docs) {
   }
 });
 
-
-// Static method to find nearby buses
-busSchema.statics.findNearby = function(latitude, longitude, maxDistance = 1000) {
-  return this.find({
-    'location.latitude': {
-      $gte: latitude - (maxDistance / 111), // Rough conversion: 1 degree ≈ 111 km
-      $lte: latitude + (maxDistance / 111)
-    },
-    'location.longitude': {
-      $gte: longitude - (maxDistance / (111 * Math.cos(latitude * Math.PI / 180))),
-      $lte: longitude + (maxDistance / (111 * Math.cos(latitude * Math.PI / 180)))
-    },
-    currentStatus: 'active',
-    'tracking.isOnline': true
-  });
-};
-
-// Static method to find buses by route
-busSchema.statics.findByRoute = function(routeId) {
-  return this.find({ 
-    routeId: routeId,
-    currentStatus: 'active'
-  }).populate('routeId').lean({virtuals: true});
-};
-
-// Static method to find buses by driver
-busSchema.statics.findByDriver = function(driverId) {
-  return this.find({ 
-    driverId: driverId
-  })
-};
-
-// Static method to find buses without drivers
-busSchema.statics.findWithoutDriver = function() {
-  return this.find({ 
-    driverId: { $exists: false }
-  });
-};
-
-// Instance method to change the route of the bus
-busSchema.methods.changeRoute = async function(newRouteId) {
-  // If the route is not actually changing, do nothing
-  if (this.routeId && this.routeId.toString() === newRouteId.toString()) {
-    return this;
-  }
-
-  // Remove this bus from the assignedBuses of the old route, if any
-  if (this.routeId) {
-    try {
-      const Route = require('./route');
-      await Route.findByIdAndUpdate(
-        this.routeId,
-        { $pull: { assignedBuses: this._id } }
-      );
-    } catch (err) {
-      // Log error but continue
-      console.error('Failed to remove bus from old route:', err.message);
-    }
-  }
-
-  // Assign this bus to the new route's assignedBuses
-  if (newRouteId) {
-    try {
-      const Route = require('./route');
-      await Route.findByIdAndUpdate(
-        newRouteId,
-        { $addToSet: { assignedBuses: this._id } }
-      );
-    } catch (err) {
-      // Log error but continue
-      console.error('Failed to add bus to new route:', err.message);
-    }
-  }
-
-  // Update the bus's routeId
-  this.routeId = newRouteId;
-  return this.save();
-};
-
 // Instance method to change the driver of the bus
-busSchema.methods.changeDriver = async function(newDriverId) {
+busSchema.methods.changeDriver = async function (newDriverId) {
   // If the driver is not actually changing, do nothing
   if (this.driverId && this.driverId.toString() === newDriverId.toString()) {
     return this;
@@ -402,7 +324,7 @@ busSchema.methods.changeDriver = async function(newDriverId) {
 };
 
 // Instance method to unassign driver from bus
-busSchema.methods.unassignDriver = async function() {
+busSchema.methods.unassignDriver = async function () {
   if (!this.driverId) {
     return this;
   }
@@ -425,34 +347,173 @@ busSchema.methods.unassignDriver = async function() {
 
 
 // Instance method to update location
-busSchema.methods.updateLocation = function(latitude, longitude, heading, speed) {
+busSchema.methods.updateLocation = async function (latitude, longitude, heading, speed) {
+  if (!this.currentStatus === 'active') {
+    throw new Error('Cannot update location for inactive bus');
+  }
+
+  const now = new Date();
   this.location.latitude = latitude;
   this.location.longitude = longitude;
   this.location.heading = heading;
   this.location.speed = speed;
-  this.location.lastUpdated = new Date();
-  this.tracking.lastSeen = new Date();
+  this.location.lastUpdated = now;
+  this.tracking.lastSeen = now;
   this.tracking.isOnline = true;
-  return this.save();
+
+  // Update operational data
+  if (this.location.lastUpdated && this.location.speed) {
+    const timeDiff = (now - this.location.lastUpdated) / 3600000; // Convert to hours
+    const distance = (this.location.speed * timeDiff); // Distance in km
+    this.operationalData.totalDistance += distance;
+    
+    // Update average speed (weighted average)
+    const totalTrips = this.operationalData.totalTrips || 1;
+    this.operationalData.averageSpeed = 
+      ((this.operationalData.averageSpeed * (totalTrips - 1)) + speed) / totalTrips;
+  }
+
+  await this.save();
+
+  // If bus is on a trip, update trip progress
+  if (this.currentTrip) {
+    try {
+      const Trip = require('./trip');
+      await Trip.findByIdAndUpdate(this.currentTrip, {
+        'currentLocation': {
+          coordinates: [longitude, latitude],
+          timestamp: now,
+          speed: speed,
+          heading: heading
+        }
+      });
+    } catch (err) {
+      console.error(`Failed to update trip location: ${err.message}`);
+      // Don't throw error to prevent location update failure
+    }
+  }
+
+  return this;
+};
+
+// Instance method to set day schedule
+busSchema.methods.setDaySchedule = async function (trips) {
+  // trips should be an array of { tripId, startTime }
+  if (!Array.isArray(trips)) {
+    throw new Error('Trips must be an array');
+  }
+
+  // Validate and sort trips by start time
+  this.daySchedule = trips
+    .map(trip => ({
+      tripId: trip.tripId,
+      startTime: trip.startTime,
+      completed: false
+    }))
+    .sort((a, b) => {
+      const timeA = a.startTime.split(':').map(Number);
+      const timeB = b.startTime.split(':').map(Number);
+      return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
+    });
+
+  try {
+    // Update all trips with this bus ID
+    const Trip = require('./trip');
+    await Trip.updateMany(
+      { _id: { $in: trips.map(t => t.tripId) } },
+      { busId: this._id }
+    );
+    return this.save();
+  } catch (err) {
+    throw new Error(`Failed to update trips with bus assignment: ${err.message}`);
+  }
 };
 
 // Instance method to start trip
-busSchema.methods.startTrip = function() {
-  this.currentStatus = 'active';
+busSchema.methods.startTrip = async function (tripId) {
+  if (this.currentTrip) {
+    throw new Error('Bus is already assigned to a trip');
+  }
+  if (this.currentStatus !== 'active') {
+    throw new Error('Bus must be in active status to start trip');
+  }
+  if (!this.driverId) {
+    throw new Error('Bus must have a driver assigned to start trip');
+  }
+
+  // Verify trip is in day schedule
+  const scheduledTrip = this.daySchedule.find(t => t.tripId.toString() === tripId.toString());
+  if (!scheduledTrip) {
+    throw new Error('Trip is not in bus day schedule');
+  }
+  if (scheduledTrip.completed) {
+    throw new Error('Trip has already been completed');
+  }
+
+  this.currentTrip = tripId;
   this.tracking.isOnline = true;
   this.tracking.lastSeen = new Date();
-  return this.save();
+  
+  try {
+    const Trip = require('./trip');
+    await Trip.findByIdAndUpdate(tripId, { 
+      busId: this._id,
+      status: 'in-progress'
+    });
+    return this.save();
+  } catch (err) {
+    throw new Error(`Failed to update trip with bus assignment: ${err.message}`);
+  }
 };
 
 // Instance method to end trip
-busSchema.methods.endTrip = function() {
-  this.currentStatus = 'inactive';
-  this.operationalData.totalTrips += 1;
-  return this.save();
+busSchema.methods.endTrip = async function () {
+  if (!this.currentTrip) {
+    throw new Error('Bus is not currently assigned to any trip');
+  }
+
+  try {
+    const Trip = require('./trip');
+    // Update trip status
+    await Trip.findByIdAndUpdate(this.currentTrip, { 
+      status: 'completed'
+    });
+    
+    // Mark trip as completed in day schedule
+    const tripIndex = this.daySchedule.findIndex(t => t.tripId.toString() === this.currentTrip.toString());
+    if (tripIndex !== -1) {
+      this.daySchedule[tripIndex].completed = true;
+    }
+    
+    // Update bus stats
+    this.operationalData.totalTrips += 1;
+    this.currentTrip = null;
+    
+    // Check if this was the last trip of the day
+    const hasRemainingTrips = this.daySchedule.some(trip => !trip.completed);
+    if (!hasRemainingTrips && this.currentStatus === 'active') {
+      this.currentStatus = 'inactive';
+    }
+
+    return this.save();
+  } catch (err) {
+    throw new Error(`Failed to end trip: ${err.message}`);
+  }
 };
 
-// Create and export the model
-busSchema.plugin(mongooseLeanVirtuals);
+// Helper method to get next scheduled trip
+busSchema.methods.getNextTrip = function() {
+  const now = new Date();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
+
+  return this.daySchedule.find(trip => {
+    if (trip.completed) return false;
+    const [hours, minutes] = trip.startTime.split(':').map(Number);
+    const tripTime = hours * 60 + minutes;
+    return tripTime > currentTime;
+  });
+};
+
 const Bus = mongoose.model('Bus', busSchema);
 
 module.exports = Bus;
