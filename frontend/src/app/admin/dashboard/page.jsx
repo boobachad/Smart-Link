@@ -3,10 +3,10 @@
 import React, { useEffect, useState } from 'react'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { auth } from "../../firebase/config"
-import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation'
 import SideNavbar from '../_components/SideNavbar';
 import { useDashActivity } from '@/hooks/useDashActivity';
+import DashBoardLoadingSkeleton from './_components/DashBoardLoadingSkeleton';
 
 function AdminDashBoard() {
 
@@ -31,10 +31,8 @@ function AdminDashBoard() {
     }, [user]);
 
     if (loading) {
-        return <div className="min-h-screen flex items-center justify-center text-lg">Loading...</div>;
+        return <DashBoardLoadingSkeleton />
     }
-
-
 
     return (
         <div className="flex h-screen bg-gray-50">

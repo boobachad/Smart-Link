@@ -2,6 +2,7 @@
 import React, { useState } from 'react'
 import { X } from 'lucide-react';
 import { SelectBus } from '@/components/selectBus';
+import { SelectDriver } from '../../_components/driverSelect';
 import { toast } from "sonner";
 
 function AddBusDialogueBox({ isOpen, onClose }) {
@@ -13,8 +14,11 @@ function AddBusDialogueBox({ isOpen, onClose }) {
         year: '',
         capacity: '',
         licensePlate: '',
+        driver:'',
         currentStatus: 'active',
     })
+
+    const [open, setOpen] = useState(false);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -77,6 +81,12 @@ function AddBusDialogueBox({ isOpen, onClose }) {
                     <div className="mb-3">
                         <label className="block text-gray-700 font-semibold mb-2">Model:</label>
                         <SelectBus model={newBus.model} setModel={(value) => setNewBus((prev) => ({...prev, model: value}))} />
+                    </div>
+
+                    {/* Driver List  */}
+                    <div className="mb-3">
+                        <label className="block text-gray-700 font-semibold mb-2">Driver:</label>
+                        <SelectDriver open={open} onOpenChange={() => {setOpen(false)}} driver={newBus.driver} setDriver={(val) => setNewBus((prev) => ({...prev, driver: val}))} />
                     </div>
 
                     {/* Capacity */}

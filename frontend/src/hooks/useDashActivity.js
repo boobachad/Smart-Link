@@ -11,7 +11,6 @@ export const useDashActivity = () => {
         setError('');
         try {
             const res = await dashboardStats();
-            console.log("stats", res);
             setData(res);
         } catch (error) {
             setError(error);
