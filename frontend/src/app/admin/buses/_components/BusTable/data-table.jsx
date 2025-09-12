@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button"
 import {
   flexRender,
   getCoreRowModel,
-  getPaginationRowModel,
-  SortingState,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
@@ -18,29 +16,29 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useRouter } from "next/navigation"
 
-export function DataTable({ columns, data }) {
+export function DataTable({ columns, data, page, totalPages, onPageChange }) {
 
   const [sorting, setSorting] = useState([])
+  const router = useRouter();
 
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: {
-      pagination: { pageSize: 5 }, // <-- set default page size to 5
-    },
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
     state: {
       sorting,
     },
+    manualPagination: true,
+    pageCount: totalPages,
   })
 
   return (
-    <div className="overflow-hidden text-lg rounded-md">
-      <Table>
+    <div className="text-sm rounded-md">
+      <Table className="text-left">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -63,6 +61,10 @@ export function DataTable({ columns, data }) {
               <TableRow
                 key={row.id}
                 data-state={row.getIsSelected() && "selected"}
+                onClick={() => router.push(`/admin/buses/bus-details/${row.original.busNumber}`)}
+                className='cursor-pointer hover:bg-gray-100'
+                role="button"
+                tabIndex={0}
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
@@ -80,20 +82,25 @@ export function DataTable({ columns, data }) {
           )}
         </TableBody>
       </Table>
+
+      {/* External PAgination Control */}
       <div className="flex items-center justify-end space-x-2 mt-6 pr-3">
         <Button
           variant="outline"
           size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
+          onClick={() => onPageChange(page - 1)}
+          disabled={page === 1}
         >
           Previous
         </Button>
+        <span className="text-sm">
+          Page {page} of {totalPages}
+        </span>
         <Button
           variant="outline"
           size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
+          onClick={() => onPageChange(page + 1)}
+          disabled={page === totalPages}
         >
           Next
         </Button>

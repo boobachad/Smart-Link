@@ -5,25 +5,37 @@ import { Badge } from "@/components/ui/badge";
 import { Trash, EditIcon } from "lucide-react";
 import StatusDropDown from "../StatusDropDown";
 
+// utils/formatDate.js
+function formatDate(isoString) {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  const options = { day: "2-digit", month: "short", year: "numeric" };
+  console.log(date.toLocaleDateString("en-US", options));
+  return date.toLocaleDateString("en-US", options);
+  // Output: "15 Aug 2025"
+}
+
+
+
 export const columns = [
   {
-    accessorKey: "busId",
+    accessorKey: "busNumber",
     header: "Bus ID",
   },
   {
-    accessorKey: "model",
+    accessorKey: "vehicleInfo.make",
     header: "Model",
   },
   {
-    accessorKey: "licensePlate",
+    accessorKey: "vehicleInfo.licensePlate",
     header: "License Plate",
   },
   {
-    accessorKey: "capacity",
+    accessorKey: "vehicleInfo.capacity",
     header: "Capacity",
   },
   {
-    accessorKey: "status",
+    accessorKey: "currentStatus",
     header: ({ column }) => (
       <Button
         variant="ghost"
@@ -34,7 +46,7 @@ export const columns = [
       </Button>
     ),
     cell: ({ row }) => {
-      const status = row.getValue("status")
+      const status = row.getValue("currentStatus")
 
       // Default variant and color
       let variant = "secondary"
@@ -43,12 +55,15 @@ export const columns = [
       if (status === "active") {
         variant = "success"
         statusColor = "bg-green-100 text-green-800"
-      } else if (status === "Inactive") {
+      } else if (status === "inactive") {
         variant = "destructive"
-        statusColor = "bg-red-100 text-red-800"
-      } else if (status === "Under Maintenance") {
+        statusColor = "bg-orange-100 text-orange-800"
+      } else if (status === "maintenance") {
         variant = "warning"
         statusColor = "bg-yellow-100 text-yellow-800"
+      } else if (status === "breakdown") {
+        variant = "destructive"
+        statusColor = "bg-red-100 text-red-800"
       }
 
       return <Badge className={statusColor} variant={variant}>{status}</Badge>
@@ -56,48 +71,61 @@ export const columns = [
 
   },
   {
-    accessorKey: "year",
+    accessorKey: "vehicleInfo.year",
     header: "Year",
   },
   {
-    accessorKey: "assignedRoutes",
+    accessorKey: "routeId.name",
     header: "Assigned Routes",
   },
   {
-    accessorKey: "lastMaintenance",
+    accessorKey: "maintenance.lastServiceDate",
     header: "Last Maintenance",
-  },
-  {
-    accessorKey: "actions",
-    header: "Actions",
     cell: ({ row }) => {
-      const busId = row.getValue("busId");
-      const currentStatus = row.getValue("status");
+      const dateValue = row.original.maintenance.lastServiceDate;
 
-      return (
-        <div className="flex gap-2 items-center">
-          {/* Update User */}
-          <EditIcon
-            size={20}
-            className="cursor-pointer"
-            onClick={() => handleUpdateUser(busId)}
-          />
+      if (!dateValue) return "-";
 
-          {/* Change Status Dropdown */}
-          <StatusDropDown
-            busId={busId}
-            initialStatus={currentStatus}
-            // onStatusChange={handleStatusUpdate}
-          />
+      const dd = new Date(dateValue);
 
-          {/* Delete User */}
-          <Trash
-            size={20}
-            className="text-red-600 hover:text-red-800 cursor-pointer"
-            onClick={() => handleDeleteUser(busId)}
-          />
-        </div>
-      );
+      // Format into "DD Mon YYYY"
+      return dd.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
     },
-  }
+  },
+  // {
+  //   accessorKey: "actions",
+  //   header: "Actions",
+  //   cell: ({ row }) => {
+  //     const busId = row.getValue("busNumber");
+  //     const currentStatus = row.getValue("currentStatus");
+
+  //     return (
+  //       <div className="flex gap-2 items-center">
+  //         {/* Update User */}
+  //         <EditIcon
+  //           size={20}
+  //           className="cursor-pointer"
+  //           onClick={() => handleUpdateUser(busId)}
+  //         />
+
+  //         {/* Change Status Dropdown */}
+  //         <StatusDropDown
+  //           busId={busId}
+  //           initialStatus={currentStatus}
+  //         // onStatusChange={handleStatusUpdate}
+  //         />
+
+  //         {/* Delete User */}
+  //         <Trash
+  //           size={20}
+  //           className="text-red-600 hover:text-red-800 cursor-pointer"
+  //           onClick={() => handleDeleteUser(busId)}
+  //         />
+  //       </div>
+  //     );
+  //   },
 ];

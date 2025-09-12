@@ -1,0 +1,8 @@
+Flask
+joblib
+numpy
+pandas
+pytz
+requests
+xgboost
+scikit-learn

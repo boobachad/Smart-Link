@@ -4,6 +4,8 @@ export async function getCoordinates(location) {
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}`
     );
 
+    console.log("geo response", response)
+
     if (!response.ok) {
       throw new Error("Failed to fetch coordinates");
     }

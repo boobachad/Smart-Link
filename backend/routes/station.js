@@ -4,15 +4,15 @@ const Station = require('../models/station');
 const { verifyUser } = require('../middleware/authMiddleware');
 
 // GET - Get all stations (paginated, Admin only)
-router.get('/', verifyUser, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     // Parse pagination query params
     const page = parseInt(req.query.page) > 0 ? parseInt(req.query.page) : 1;
@@ -46,7 +46,7 @@ router.get('/', verifyUser, async (req, res) => {
       Station.find()
         .skip(skip)
         .limit(limit)
-        .lean()
+        .lean({virtuals: true})
     ]);
 
     // Extract counts from aggregation result
@@ -79,16 +79,16 @@ router.get('/', verifyUser, async (req, res) => {
 });
 
 // POST - Add a single station (Admin only)
-router.post('/', verifyUser, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const stationData = req.body;
     
@@ -177,15 +177,15 @@ router.post('/', verifyUser, async (req, res) => {
 });
 
 // POST - Add multiple stations (Bulk insert - Admin only)
-router.post('/bulk', verifyUser, async (req, res) => {
+router.post('/bulk', async (req, res) => {
   try {
     // // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { stations } = req.body;
     

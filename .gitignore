@@ -62,3 +62,5 @@ desktop.ini
 *.lnk
 *.tmp
 *.lock
+backend/.env
+backend/.env

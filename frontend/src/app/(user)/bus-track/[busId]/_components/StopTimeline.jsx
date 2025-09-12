@@ -3,11 +3,11 @@ import React from 'react';
 
 const StopTimeline = ({ stops }) => {
   return (
-    <div className="relative pl-6">
+    <div className="relative pl-6 overflow-y-scroll">
       {stops.map((stop, index) => (
         <div key={index} className="mb-4 flex items-start">
           {/* Vertical line and dot */}
-          <div className="absolute left-0 top-0 bottom-0 flex flex-col items-center">
+          {/* <div className="absolute left-0 top-0 bottom-0 flex flex-col items-center">
             {stop.status === 'departed' && (
               <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
                 <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
@@ -29,15 +29,15 @@ const StopTimeline = ({ stops }) => {
             {index < stops.length - 1 && (
               <div className={`flex-1 w-px ${stop.status === 'departed' ? 'bg-green-500' : 'bg-gray-300'} ml-2`}></div>
             )}
-          </div>
+          </div> */}
 
           {/* Stop details */}
           <div className="ml-4">
-            <h3 className={`font-semibold ${stop.status === 'departed' ? 'text-green-600' : stop.status === 'next' ? 'text-blue-600' : 'text-gray-800'}`}>
-              {stop.name}
+            <h3 className={`font-semibold`}>
+              {stop.coordinates}
             </h3>
             <p className="text-sm text-gray-500">
-              {stop.status === 'departed' ? `Departed at ${stop.time}` : stop.status === 'next' ? `Next Stop, ETA: ${stop.time}` : `ETA: ${stop.time}`}
+              {stop.scheduledTime}
             </p>
           </div>
         </div>

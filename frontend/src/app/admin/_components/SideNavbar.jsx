@@ -1,11 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Bus, ChartColumn, Route, BusFront, MapPin } from 'lucide-react';
+import { Bus, ChartColumn, Route, BusFront, MapPin, LogOutIcon } from 'lucide-react';
 import SideNavbarLoadingSkeleton from './SideNavbarLoadingSkeleton';
 import { useRouter } from 'next/navigation';
 
 function SideNavbar({ activeSection, setActiveSection, loading }) {
-    const [isLoading, setIsLoading] = useState(loading);
     const router = useRouter();
 
     const sections = [
@@ -13,6 +12,7 @@ function SideNavbar({ activeSection, setActiveSection, loading }) {
         { name: 'Routes', icon: <Route size={20} />, link: '/admin/routes' },
         { name: 'Buses', icon: <BusFront size={20} />, link: '/admin/buses' },
         { name: 'Station', icon: <MapPin size={20} />, link: '/admin/station' },
+        { name: 'Log Out', icon: <LogOutIcon size={20} />, link: '/admin/logout'},
     ];
 
     const handleSectionClick = (sectionName, sectionLink) => {
@@ -20,19 +20,15 @@ function SideNavbar({ activeSection, setActiveSection, loading }) {
         router.push(sectionLink);
     };
 
-    useEffect(() => {
-        let timer;
-        if (loading) {
-            timer = setTimeout(() => {
-                setIsLoading(false);
-            }, 1500);
-        }
-        return () => clearTimeout(timer);
-    }, [loading]);
-
-    if (isLoading) {
-        return <SideNavbarLoadingSkeleton />;
-    }
+    // useEffect(() => {
+    //     let timer;
+    //     if (loading) {
+    //         timer = setTimeout(() => {
+    //             setIsLoading(false);
+    //         }, 1500);
+    //     }
+    //     return () => clearTimeout(timer);
+    // }, [loading]);
 
     return (
         <div className="w-64 h-screen border border-gray-200 bg-gray-100 flex flex-col">
@@ -52,6 +48,10 @@ function SideNavbar({ activeSection, setActiveSection, loading }) {
                                 ${activeSection === section.name
                                 ? 'bg-slate-200 shadow-md transform scale-105 font-semibold text-blue-600'
                                 : 'hover:bg-gray-200'}
+                                ${ section.name === 'Log Out'
+                                    ? 'text-bold text-red-600'
+                                    : ''
+                                }
                             `}
                     >
                         {section.icon}

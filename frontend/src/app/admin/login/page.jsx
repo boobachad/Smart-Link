@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { useSignInWithEmailAndPassword } from "react-firebase-hooks/auth"
 import { auth } from '@/app/firebase/config';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 function Login() {
 
@@ -45,6 +46,7 @@ function Login() {
   useEffect(() => {
     if (user) {
       console.log('User signed in successfully:', user);
+      toast.success("Welcome Back !!")
       router.push('/admin/dashboard');
     }
   }, [user, router]);

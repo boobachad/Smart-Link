@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
+const mongooseLeanVirtuals = require('mongoose-lean-virtuals');
 
 // Define the station schema - specialized for stations only
 const stationSchema = new mongoose.Schema({
+  _id: mongoose.Schema.Types.ObjectId,
   // Basic station information
   name: {
     type: String,
@@ -9,7 +11,7 @@ const stationSchema = new mongoose.Schema({
     trim: true,
     maxlength: 100
   },
-  
+
   // Station code/identifier
   code: {
     type: String,
@@ -19,7 +21,7 @@ const stationSchema = new mongoose.Schema({
     uppercase: true,
     maxlength: 10
   },
-  
+
   // Location information
   location: {
     latitude: {
@@ -66,7 +68,7 @@ const stationSchema = new mongoose.Schema({
       trim: true
     }
   },
-  
+
   // Station status and operational data
   status: {
     type: String,
@@ -112,34 +114,41 @@ const stationSchema = new mongoose.Schema({
       is24Hours: { type: Boolean, default: false }
     }
   },
-  
+
   // Routes that serve this station
   routes: [{
     routeId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Route',
       required: true
+    },
+    position: {
+      type: String,
+      enum: ['start', 'end', 'intermediate'],
+      required: true
+    },
+    sequence: {
+      type: Number,
+      required: true,
+      min: 1
     }
   }],
-  
+
   // Station connectivity
-  connectivity: {
-    nearbyStations: [{
-      stationId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Station'
-      },
-      distance: {
-        type: Number, // in meters
-        required: true
-      },
-      walkingTime: {
-        type: Number, // in minutes
-        required: true
-      }
-    }]
-  },
-  
+  nearbyStops: [{
+    stopId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Stop'
+    },
+    distance: {
+      type: Number, // in meters
+      required: true
+    },
+    walkingTime: {
+      type: Number, // in minutes
+      required: true
+    }
+  }],
   // Historical and analytics data
   analytics: {
     dailyPassengerCount: {
@@ -169,28 +178,28 @@ const stationSchema = new mongoose.Schema({
 });
 
 // Virtual for checking if station is currently open
-stationSchema.virtual('isOpen').get(function() {
+stationSchema.virtual('isOpen').get(function () {
   const now = new Date();
   const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()];
   const todayHours = this.operatingHours[dayOfWeek];
-  
+
   if (todayHours.is24Hours) return true;
-  
+
   const currentTime = now.getHours() * 60 + now.getMinutes();
   const openTime = parseInt(todayHours.open.split(':')[0]) * 60 + parseInt(todayHours.open.split(':')[1]);
   const closeTime = parseInt(todayHours.close.split(':')[0]) * 60 + parseInt(todayHours.close.split(':')[1]);
-  
+
   return currentTime >= openTime && currentTime <= closeTime;
 });
 
 // Virtual for getting full address
-stationSchema.virtual('fullAddress').get(function() {
+stationSchema.virtual('fullAddress').get(function () {
   const addr = this.location.address;
   return `${addr.street}, ${addr.city}, ${addr.state} ${addr.zipCode}, ${addr.country}`;
 });
 
 // Static method to find nearby stations
-stationSchema.statics.findNearby = function(latitude, longitude, maxDistance = 1000) {
+stationSchema.statics.findNearby = function (latitude, longitude, maxDistance = 1000) {
   return this.find({
     'location.latitude': {
       $gte: latitude - (maxDistance / 111), // Rough conversion: 1 degree ≈ 111 km
@@ -205,61 +214,61 @@ stationSchema.statics.findNearby = function(latitude, longitude, maxDistance = 1
 };
 
 // Static method to find stations by status
-stationSchema.statics.findByStatus = function(status) {
-  return this.find({ 
+stationSchema.statics.findByStatus = function (status) {
+  return this.find({
     status: status
   });
 };
 
 // Static method to find stations by route
-stationSchema.statics.findByRoute = function(routeId) {
-  return this.find({ 
+stationSchema.statics.findByRoute = function (routeId) {
+  return this.find({
     'routes.routeId': routeId,
     status: 'active'
-  }).populate('routes.routeId');
+  });
 };
 
 // Instance method to add route
-stationSchema.methods.addRoute = function(routeId, routeName, direction, sequence) {
-  const existingRoute = this.routes.find(route => 
+stationSchema.methods.addRoute = function (routeId, position, sequence) {
+  const existingRoute = this.routes.find(route =>
     route.routeId.toString() === routeId.toString()
   );
-  
+
   if (existingRoute) {
-    throw new Error('Route already exists for this direction');
+    throw new Error('Route already exists for this station');
   }
-  
+
   this.routes.push({
     routeId: routeId,
-    routeName: routeName,
-    direction: direction,
+    position: position,
     sequence: sequence
   });
-  
+
   return this.save();
 };
 
 // Instance method to remove route
-stationSchema.methods.removeRoute = function(routeId, direction) {
-  this.routes = this.routes.filter(route => 
+stationSchema.methods.removeRoute = function (routeId) {
+  this.routes = this.routes.filter(route =>
     !(route.routeId.toString() === routeId.toString())
   );
   return this.save();
 };
 
 // Instance method to update wait time
-stationSchema.methods.updateWaitTime = function(waitTime) {
+stationSchema.methods.updateWaitTime = function (waitTime) {
   this.realTimeData.averageWaitTime = waitTime;
   this.realTimeData.lastUpdated = new Date();
   return this.save();
 };
 
 // Instance method to check if station is accessible
-stationSchema.methods.isAccessible = function() {
+stationSchema.methods.isAccessible = function () {
   return this.status === 'active';
 };
 
 // Create and export the model
+stationSchema.plugin(mongooseLeanVirtuals);
 const Station = mongoose.model('Station', stationSchema);
 
 module.exports = Station;

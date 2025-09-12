@@ -9,13 +9,17 @@ import BusSearchSkeleton from './_components/BusSearchLoadingPageSkeleton';
 export default function BusSearchPage() {
 
   const searchParams = useSearchParams();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [buses, setBuses] = useState([]);
 
   const fromLocation = searchParams.get('from') || '';
   const toLocation = searchParams.get('to') || '';
 
-  useEffect(() => {
+  if (isLoading) {
+    return <BusSearchSkeleton />
+  }
+
+    useEffect(() => {
     setTimeout(() => {
       const filteredBuses = mockBuses.filter((bus) => {
         const isMatchingFrom = bus.origin.toLowerCase() === fromLocation.toLowerCase();
@@ -26,10 +30,6 @@ export default function BusSearchPage() {
       setIsLoading(false);
     }, 1500);
   }, [fromLocation, toLocation]);
-
-  if (isLoading) {
-    return <BusSearchSkeleton />
-  }
 
 
   return (
