@@ -3,6 +3,7 @@ const mongooseLeanVirtuals = require('mongoose-lean-virtuals');
 
 // Define the stop schema - specialized for bus stops only
 const stopSchema = new mongoose.Schema({
+  _id: mongoose.Schema.Types.ObjectId,
   // Basic stop information
   name: {
     type: String,

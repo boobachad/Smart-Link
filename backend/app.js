@@ -16,9 +16,6 @@ mongoose.connect(mongoURI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 }).then(() => {
-=======
-const mongoURI = process.env.MONGODB_URI;
-mongoose.connect(mongoURI).then(() => {
   console.log('MongoDB connected');
 }).catch(err => {
   console.error('MongoDB connection error:', err);
@@ -33,6 +30,7 @@ const routeRouter = require('./routes/route');
 const stationRouter = require('./routes/station');
 const stopRouter = require('./routes/stop');
 const driverRouter = require('./routes/driver');
+const gpsRouter = require('./routes/gps');
 
 const app = express();
 
@@ -60,14 +58,39 @@ app.use('/api/routes', routeRouter);
 app.use('/api/stations', stationRouter);
 app.use('/api/stops', stopRouter);
 app.use('/api/drivers', driverRouter);
+app.use('/api/gps', gpsRouter);
+
+// Fetch Trip Data For GPS Simulation
+app.get('/api/trips', async (req, res) => {
+  try {
+    const Trip = require('./models/trip');
+    const trips = await Trip.find()
+      .populate('routeId', 'name code')
+      .populate('busId', 'busNumber currentStatus')
+      .lean();
+      
+    res.status(200).json({
+      success: true,
+      data: trips,
+      count: trips.length
+    });
+  } catch (error) {
+    console.error('Error fetching trip data:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch trip data',
+      message: error.message 
+    });
+  }
+});
 
 // catch 404 and forward to error handler
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   next(createError(404));
 });
 
 // error handler
-app.use(function(err, req, res, next) {
+app.use(function (err, req, res, next) {
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
@@ -76,5 +99,6 @@ app.use(function(err, req, res, next) {
   res.status(err.status || 500);
   res.render('error');
 });
+
 
 module.exports = app;
