@@ -83,6 +83,40 @@ app.get('/api/trips', async (req, res) => {
     });
   }
 });
+// Fetch Trip Data For GPS Simulation
+app.get('/api/trip/:id', async (req, res) => {
+  try {
+    const Trip = require('./models/trip');
+    const trips = await Trip.findOne({_id: req.params.id})
+      .populate('routeId', 'name code')
+      .populate('busId', 'busNumber currentStatus')
+      .lean();
+      
+    res.status(200).json({
+      success: true,
+      data: trips,
+      count: trips.length
+    });
+  } catch (error) {
+    console.error('Error fetching trip data:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch trip data',
+      message: error.message 
+    });
+  }
+});
+
+// async function trpc() {
+//   const Trip = require('./models/trip')
+//   await Trip.createTrip("68c2ed568c91b9b2ce471a47", "05:00");
+//   console.log("Trip created");
+// }
+
+// app.post('/repair', async (req, res) => {
+//   await trpc();
+//   res.status(200).json({success: true})
+// })
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {

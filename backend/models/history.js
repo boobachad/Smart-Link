@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const TripHistorySchema = new mongoose.Schema({
+    historyId: { type: String, required: true, unique: true },
     tripId: { type: mongoose.Schema.Types.ObjectId, ref: 'Trip', required: true },
     busId: { type: mongoose.Schema.Types.ObjectId, ref: 'Bus', required: true },
     routeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Route', required: true },
