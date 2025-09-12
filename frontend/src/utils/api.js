@@ -44,9 +44,24 @@ export const updateBusData = async (id, busData) => {
     return res.data.bus;
 }
 
-export const getStation = async(page = 1, limit = 1000) => {
+export const getStation = async(page = 1, limit = 10) => {
     const res = await axios.get(`${API_BASE_URL}/api/stations`, {
         params: { page, limit }
     });
+    console.log("APi result", res.data)
     return res.data;
+}
+
+export const getStationById = async (id) => {
+    try {
+        const res = await axios.get(`http://localhost:5000/api/buses/${id}`, {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem("userAuth")}`,
+            },
+        });
+        return res.data;
+    } catch (err) {
+        console.error("API error:", err.response?.data || err.message);
+        throw err;
+    }
 }
