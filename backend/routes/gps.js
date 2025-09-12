@@ -1,9 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const fetch = require('node-fetch');
 const TripHistory = require('../models/history');
 const Bus = require('../models/bus');
 const Trip = require('../models/trip');
+
+// Configuration for the external server
+const EXTERNAL_SERVER_URL = process.env.EXTERNAL_SERVER_URL || 'http://10.140.195.67:5000/predict_eta';
 
 // Function to calculate distance between two points
 function calculateDistance(point1, point2) {
@@ -61,30 +65,36 @@ router.post('/', async (req, res) => {
     try {
         const gpsData = req.body;
         const currentTime = new Date(gpsData.lastUpdated || new Date());
-        
+
         if (!gpsData.busId || !gpsData.latitude || !gpsData.longitude) {
             return res.status(400).json({ success: false });
         }
-        console.log('Received GPS Data:', gpsData.busId);
+        console.log('Received GPS Data:', gpsData);
+
 
         const bus = await Bus.findOneAndUpdate(
             { busNumber: gpsData.busId },
             {
-                'tracking.lastLocation': {
+                location: {
                     latitude: gpsData.latitude,
-                    longitude: gpsData.longitude
+                    longitude: gpsData.longitude,
+                    heading: gpsData.heading || 0,
+                    speed: gpsData.speed || 30,
+                    lastUpdated: currentTime
                 },
-                'tracking.lastUpdate': currentTime
+                'tracking.lastSeen': currentTime
             },
             { new: true }
         );
+
+
 
         if (!bus) {
             return res.status(200).json({ success: true });
         }
 
         let tripHistory = await TripHistory.findOne({
-            busId: bus._id,
+            historyId: gpsData.tripInstanceId,
             completed: false
         });
 
@@ -92,50 +102,85 @@ router.post('/', async (req, res) => {
             const activeTrip = await Trip.findOne({ busId: bus._id }).populate('routeId');
 
             if (activeTrip) {
-                // 🟢 Fix: base date = date of trip start from GPS
+                // base date = current trip day
                 const baseDate = new Date(currentTime);
+                const historyId = `${activeTrip._id}_${baseDate.toISOString().slice(0, 10).replace(/-/g, "")}`;
 
-                tripHistory = await TripHistory.create({
-                    tripId: activeTrip._id,
-                    busId: bus._id,
-                    routeId: activeTrip.routeId._id,
-                    date: baseDate.setHours(0,0,0,0), // Store only the date part
-                    startStation: {
-                        coordinates: activeTrip.startStation.coordinates,
-                        expectedTime: getDateTimeFromScheduled(
-                            activeTrip.startStation.scheduledTime,
-                            baseDate
-                        )
+                // idempotent create-or-return existing
+                tripHistory = await TripHistory.findOneAndUpdate(
+                    { historyId }, // unique key prevents duplicates
+                    {
+                        $setOnInsert: {
+                            historyId,
+                            tripId: activeTrip._id,
+                            busId: bus._id,
+                            routeId: activeTrip.routeId._id,
+                            date: baseDate.setHours(0, 0, 0, 0),
+                            startStation: {
+                                coordinates: activeTrip.startStation.coordinates,
+                                expectedTime: getDateTimeFromScheduled(
+                                    activeTrip.startStation.scheduledTime,
+                                    baseDate
+                                )
+                            },
+                            endStation: {
+                                coordinates: activeTrip.endStation.coordinates,
+                                expectedTime: getDateTimeFromScheduled(
+                                    activeTrip.endStation.scheduledTime,
+                                    baseDate
+                                )
+                            },
+                            stops: activeTrip.stops.map(stop => ({
+                                coordinates: stop.coordinates,
+                                expectedTime: getDateTimeFromScheduled(
+                                    stop.scheduledTime,
+                                    baseDate
+                                )
+                            }))
+                        }
                     },
-                    endStation: {
-                        coordinates: activeTrip.endStation.coordinates,
-                        expectedTime: getDateTimeFromScheduled(
-                            activeTrip.endStation.scheduledTime,
-                            baseDate
-                        )
-                    },
-                    stops: activeTrip.stops.map(stop => ({
-                        coordinates: stop.coordinates,
-                        expectedTime: getDateTimeFromScheduled(
-                            stop.scheduledTime,
-                            baseDate
-                        )
-                    }))
-                });
+                    { new: true, upsert: true }
+                );
             }
         }
+
 
 
         const currentLocation = { latitude: gpsData.latitude, longitude: gpsData.longitude };
 
         if (!tripHistory.completed) {
+            // Send location data to external server
+            // try {
+            //     const response = await fetch(EXTERNAL_SERVER_URL, {
+            //         method: 'POST',
+            //         headers: {
+            //             'Content-Type': 'application/json',
+            //         },
+            //         body: JSON.stringify({
+            //             start_lat: gpsData.latitude,
+            //             start_lon: gpsData.longitude,
+            //             end_lat: tripHistory.stops[tripHistory.nextStopIndex].coordinates[1],
+            //             end_lon: tripHistory.stops[tripHistory.nextStopIndex].coordinates[0],
+            //             scheduled_time_minutes: (tripHistory.endStation.expectedTime - tripHistory.startStation.expectedTime) / (1000 * 60),
+            //             num_stops: tripHistory.stops.length + 2,
+            //         })
+            //     });
+
+            //     if (!response.ok) {
+            //         console.error('Failed to send data to external server:', await response.text());
+            //     } else {
+            //         const eta = await response.json();
+            //         console.log('Successfully sent location data to external server', eta);
+            //     }
+            // } catch (error) {
+            //     console.error('Error sending data to external server:', error);
+            //     // Continue processing even if external server request fails
+            // }
             const updates = {};
 
             if (!tripHistory.isStarted) {
-                if (isNearPoint(currentLocation, tripHistory.startStation.coordinates)) {
-                    updates['startStation.arrivedTime'] = currentTime;
-                    updates['isStarted'] = true;
-                }
+                updates['startStation.arrivedTime'] = currentTime;
+                updates['isStarted'] = true;
             } else if (tripHistory.isStarted) {
                 if (tripHistory.nextStopIndex < tripHistory.stops.length) {
                     const nextStop = tripHistory.stops[tripHistory.nextStopIndex];

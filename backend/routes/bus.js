@@ -83,14 +83,14 @@ router.get('/', verifyUser, async (req, res) => {
 });
 
 // GET - Get a single bus by its bus number
-router.get('/:busNumber', verifyUser, async (req, res) => {
+router.get('/:busNumber', async (req, res) => {
   try {
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { busNumber } = req.params;
 
