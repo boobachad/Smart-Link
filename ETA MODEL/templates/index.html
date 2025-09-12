@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bus ETA Simulation</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #status { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+        #coordinates { margin-top: 10px; }
+    </style>
+</head>
+<body>
+<h1>Bus ETA Real-Time Simulation</h1>
+
+<div id="controls">
+    <h2>Simulation Parameters</h2>
+    <label>Start Latitude:</label>
+    <input type="number" id="start_lat" value="30.741" step="0.0001"><br><br>
+
+    <label>Start Longitude:</label>
+    <input type="number" id="start_lon" value="76.7821" step="0.0001"><br><br>
+
+    <label>Destination Latitude:</label>
+    <input type="number" id="end_lat" value="30.7114" step="0.0001"><br><br>
+
+    <label>Destination Longitude:</label>
+    <input type="number" id="end_lon" value="76.7676" step="0.0001"><br><br>
+
+    <label>Scheduled Full Trip Time (min):</label>
+    <input type="number" id="scheduled_time_min" value="25.0" step="0.1"><br><br>
+
+    <label>Number of Remaining Stops:</label>
+    <input type="number" id="num_stops" value="4" step="1"><br><br>
+
+    <button onclick="startSimulation()">Start Simulation</button>
+</div>
+
+<div id="status">
+    <h2>Simulation Status</h2>
+    <p><strong>Predicted Arrival Time:</strong> <span id="predicted_arrival_time">-</span></p>
+    <p><strong>Remaining Time:</strong> <span id="remaining_time">-</span> min</p>
+    <p><strong>Remaining Distance:</strong> <span id="remaining_distance">-</span> km</p>
+    <p><strong>Current Speed:</strong> <span id="current_speed">-</span> km/h</p>
+    <p><strong>Weather:</strong> <span id="weather">-</span></p>
+    <p><strong>Status:</strong> <span id="eta_status">-</span></p>
+    <div id="coordinates">
+        <p><strong>Current Bus Coords:</strong> <span id="bus_coords">-</span></p>
+    </div>
+</div>
+
+<script>
+function startSimulation() {
+    // Grab form values
+    const payload = {
+        start_lat: parseFloat(document.getElementById('start_lat').value),
+        start_lon: parseFloat(document.getElementById('start_lon').value),
+        end_lat: parseFloat(document.getElementById('end_lat').value),
+        end_lon: parseFloat(document.getElementById('end_lon').value),
+        scheduled_time_min: parseFloat(document.getElementById('scheduled_time_min').value),
+        num_stops: parseInt(document.getElementById('num_stops').value)
+    };
+
+    // Reset UI
+    ['predicted_arrival_time','remaining_time','remaining_distance',
+     'current_speed','weather','eta_status','bus_coords']
+     .forEach(id => document.getElementById(id).textContent='-');
+
+    fetch('/start_simulation', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    })
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        function read() {
+            return reader.read().then(({done,value})=>{
+                if (done) return; // stop when stream ends
+                buffer += decoder.decode(value, {stream:true});
+                let boundary;
+                while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+                    const chunk = buffer.slice(0,boundary);
+                    buffer = buffer.slice(boundary+2);
+
+                    if (chunk.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(chunk.slice(6));
+                            if (data.error) {
+                                document.getElementById('eta_status').textContent=`Error: ${data.error}`;
+                                return;
+                            }
+                            // Update UI safely
+                            document.getElementById('predicted_arrival_time').textContent = data.predicted_arrival_time ?? '-';
+                            document.getElementById('remaining_time').textContent = data.remaining_time_minutes?.toFixed(1) ?? '-';
+                            document.getElementById('remaining_distance').textContent = data.remaining_distance_km?.toFixed(2) ?? '-';
+                            document.getElementById('current_speed').textContent = data.current_speed_kmph?.toFixed(2) ?? '-';
+                            document.getElementById('weather').textContent = data.weather ?? '-';
+                            document.getElementById('eta_status').textContent = data.status ?? '-';
+                            if (data.bus_coords && data.bus_coords.lat && data.bus_coords.lon) {
+                                document.getElementById('bus_coords').textContent =
+                                  `(${data.bus_coords.lat.toFixed(4)}, ${data.bus_coords.lon.toFixed(4)})`;
+                            }
+                        } catch(e) {
+                            console.error('JSON parse error:', e);
+                        }
+                    }
+                }
+                return read();
+            });
+        }
+        return read();
+    })
+    .catch(error => {
+        console.error('Error starting simulation:', error);
+        document.getElementById('eta_status').textContent=`Error: ${error.message}`;
+    });
+}
+</script>
+</body>
+</html>
