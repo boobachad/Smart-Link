@@ -56,15 +56,15 @@ async function generateTripsForRoute(routeId, timing) {
 }
 
 // GET - Get all routes (paginated, Admin only)
-router.get('/', verifyUser, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     // Parse pagination query params
     const page = parseInt(req.query.page) > 0 ? parseInt(req.query.page) : 1;
@@ -107,14 +107,14 @@ router.get('/', verifyUser, async (req, res) => {
   }
 });
 
-router.get('/:code', verifyUser, async (req, res) => {
+router.get('/:code', async (req, res) => {
   try {
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const route = await Route.findOne({ code: req.params.code })
       .populate('startStation', 'location name')
@@ -412,15 +412,15 @@ router.post('/bulk', async (req, res) => {
 
 // Assign a bus to a route (Admin only)
 // Assign multiple buses to a route using route code (Admin only)
-router.put('/:routeCode/assign-bus', verifyUser, async (req, res) => {
+router.put('/:routeCode/assign-bus', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { routeCode } = req.params;
     let { busIds } = req.body;
@@ -479,15 +479,15 @@ router.put('/:routeCode/assign-bus', verifyUser, async (req, res) => {
 });
 
 // Unassign multiple buses from a route using route code (Admin only)
-router.put('/:routeCode/unassign-bus', verifyUser, async (req, res) => {
+router.put('/:routeCode/unassign-bus', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { routeCode } = req.params;
     let { busIds } = req.body;
@@ -546,14 +546,14 @@ router.put('/:routeCode/unassign-bus', verifyUser, async (req, res) => {
 });
 
 // GET - Get list of buses assigned to a route (by route code)
-router.get('/:routeCode/assigned-buses', verifyUser, async (req, res) => {
+router.get('/:routeCode/assigned-buses', async (req, res) => {
   try {
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { routeCode } = req.params;
 
@@ -582,15 +582,15 @@ router.get('/:routeCode/assigned-buses', verifyUser, async (req, res) => {
 });
 
 // POST - Add intermediate point to route with connectivity (Admin only)
-router.post('/:routeCode/intermediate-points', verifyUser, async (req, res) => {
+router.post('/:routeCode/intermediate-points', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { routeCode } = req.params;
     const { pointId, pointType, pointName, sequence, arrivalTime, departureTime, haltTime = 0, isOptional = false } = req.body;
@@ -651,15 +651,15 @@ router.post('/:routeCode/intermediate-points', verifyUser, async (req, res) => {
 });
 
 // DELETE - Remove intermediate point from route with connectivity (Admin only)
-router.delete('/:routeCode/intermediate-points/:pointId', verifyUser, async (req, res) => {
+router.delete('/:routeCode/intermediate-points/:pointId', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { routeCode, pointId } = req.params;
 
@@ -694,15 +694,15 @@ router.delete('/:routeCode/intermediate-points/:pointId', verifyUser, async (req
 });
 
 // PUT - Update route with connectivity refresh (Admin only)
-router.put('/:routeCode', verifyUser, async (req, res) => {
+router.put('/:routeCode', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { routeCode } = req.params;
     const updateData = req.body;
@@ -738,15 +738,15 @@ router.put('/:routeCode', verifyUser, async (req, res) => {
 });
 
 // DELETE - Delete route with connectivity cleanup (Admin only)
-router.delete('/:routeCode', verifyUser, async (req, res) => {
+router.delete('/:routeCode', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { routeCode } = req.params;
 

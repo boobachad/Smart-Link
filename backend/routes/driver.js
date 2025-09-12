@@ -48,15 +48,15 @@ const validateDriver = [
 ];
 
 // GET - Get all drivers (paginated, Admin only)
-router.get('/', verifyUser, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     // Parse pagination query params
     const page = parseInt(req.query.page) > 0 ? parseInt(req.query.page) : 1;
@@ -151,15 +151,15 @@ router.get('/', verifyUser, async (req, res) => {
 });
 
 // GET - Get driver by ID
-router.get('/:id', verifyUser, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const driver = await Driver.findById(req.params.id)
       .populate('assignedBus', 'busNumber currentStatus routeId')
@@ -188,15 +188,15 @@ router.get('/:id', verifyUser, async (req, res) => {
 });
 
 // GET - Get drivers by status
-router.get('/status/:status', verifyUser, async (req, res) => {
+router.get('/status/:status', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { status } = req.params;
     let filter = {};
@@ -321,15 +321,15 @@ router.post('/', validateDriver, async (req, res) => {
 });
 
 // PUT - Update driver by ID
-router.put('/:id', verifyUser, validateDriver, async (req, res) => {
+router.put('/:id', validateDriver, async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     // Check for validation errors
     const errors = validationResult(req);

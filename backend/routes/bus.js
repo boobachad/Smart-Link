@@ -5,15 +5,15 @@ const Bus = require('../models/bus');
 const { verifyUser } = require('../middleware/authMiddleware');
 
 // GET - Get all buses (paginated, Admin only)
-router.get('/', verifyUser, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     // Parse pagination query params
     const page = parseInt(req.query.page) > 0 ? parseInt(req.query.page) : 1;
@@ -232,14 +232,14 @@ router.post('/', async (req, res) => {
 });
 
 // PUT - Set day schedule for a bus
-router.put('/:busNumber/schedule', verifyUser, async (req, res) => {
+router.put('/:busNumber/schedule', async (req, res) => {
   try {
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { busNumber } = req.params;
     const { trips } = req.body;
@@ -460,15 +460,15 @@ router.post('/bulk', async (req, res) => {
 });
 
 // PUT - Change route assignment for a bus (Admin only)
-router.put('/:busNumber/change-route', verifyUser, async (req, res) => {
+router.put('/:busNumber/change-route', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { busNumber } = req.params;
     const { newRouteId } = req.body;
@@ -509,15 +509,15 @@ router.put('/:busNumber/change-route', verifyUser, async (req, res) => {
 
 
 // PUT - Change status of a bus (Admin only)
-router.put('/:busNumber/change-status', verifyUser, async (req, res) => {
+router.put('/:busNumber/change-status', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { busNumber } = req.params;
     const { newStatus } = req.body;
@@ -561,15 +561,15 @@ router.put('/:busNumber/change-status', verifyUser, async (req, res) => {
 });
 
 // POST - Change the driver of a bus (Admin only)
-router.put('/:busNumber/change-driver', verifyUser, async (req, res) => {
+router.put('/:busNumber/change-driver', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { busNumber } = req.params;
     const { newDriverId } = req.body;
@@ -610,15 +610,15 @@ router.put('/:busNumber/change-driver', verifyUser, async (req, res) => {
 });
 
 // PATCH - Update multiple details of a bus (Admin only)
-router.patch('/:busNumber', verifyUser, async (req, res) => {
+router.patch('/:busNumber', async (req, res) => {
   try {
     // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const { busNumber } = req.params;
     const updateData = req.body;
