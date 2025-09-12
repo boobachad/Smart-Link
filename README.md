@@ -55,17 +55,18 @@ SmartLink is built with **modern, reliable, and scalable technologies** to deliv
 ---
 
 ### 🖥️ **Frontend**
-- <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" width="25"/> **React.js** – Dynamic UI with Hooks & Context API / Redux  
-- <img src="https://upload.wikimedia.org/wikipedia/commons/d/d5/Tailwind_CSS_Logo.svg" width="25"/> **TailwindCSS / CSS** – Sleek, responsive styling  
-- <img src="https://leafletjs.com/docs/images/logo.png" width="55"/> **Leaflet.js** /  **Google Maps API** – Interactive live maps  
+- <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" width="25"/> **React.js** – Dynamic UI with Hooks & Context API / Zustand for state management  
+- <img src="https://upload.wikimedia.org/wikipedia/commons/d/d5/Tailwind_CSS_Logo.svg" width="25"/> **Shadcn UI / TailwindCSS** – Beautiful, reusable components and responsive styling  
+- <img src="https://leafletjs.com/docs/images/logo.png" width="55"/> **Leaflet.js** – Interactive maps for real-time bus tracking  
+- 🗺️ **Google Maps API** – Route visualization and location services
+- 🌍**OSMR** – OpenStreetMap routing for optimal paths  
 
 ### 🛠️ **Backend**
 - <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nodejs/nodejs-original.svg" width="25"/> **Node.js** & <img src="https://img.icons8.com/color/48/000000/express-js.png" width="40"/> **Express.js** – Fast, scalable server-side logic  
-- <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/redis/redis-original.svg" width="25"/> **Redis** – Real-time caching for lightning-fast updates  
-- <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mongodb/mongodb-original.svg" width="25"/> **MongoDB** / <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg" width="25"/> **SQL** – Persistent storage for buses, routes, and users  
+- <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mongodb/mongodb-original.svg" width="25"/> **MongoDB Atlas** – Cloud database for buses, routes, and users  
 
 ### 🔒 **Authentication & Security**
-- <img src="https://jwt.io/img/pic_logo.svg" width="25"/> **JWT** – Secure authentication for all users  
+- <img src="https://www.vectorlogo.zone/logos/firebase/firebase-icon.svg" width="25"/> **Firebase Authentication** – Secure sign-in for users and admins   
 - 👥 **Role-Based Access Control** – Admin, Operator, Passenger permissions  
 
 ✨ SmartLink combines **⚡ speed**, **🗺️ interactivity**, and **🔒 security** — the ultimate stack for real-time bus tracking! 🚍💨
