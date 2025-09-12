@@ -28,7 +28,7 @@ export default function HomePage() {
 
     const handleSearch = () => {
         console.log("Search Result", from , to)
-        // router.push(`/bus-search?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+        router.push(`/bus-search?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
     };
 
     // Suggestion logic for 'from' input

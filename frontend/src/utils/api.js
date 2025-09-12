@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:5000";
+const API_BASE_URL = "http://10.140.195.182:5000";
 export const getBuses = async (page = 1, pageSize = 10) => {
     const res = await axios.get(`${API_BASE_URL}/api/buses`, {
         params: { page, pageSize },
@@ -22,11 +22,7 @@ export const dashboardStats = async () => {
 
 export const getBusDataById = async (id) => {
     try {
-        const res = await axios.get(`http://localhost:5000/api/buses/${id}`, {
-            headers: {
-                Authorization: `Bearer ${localStorage.getItem("userAuth")}`,
-            },
-        });
+        const res = await axios.get(`${API_BASE_URL}/api/buses/${id}`)
         return res.data;
     } catch (err) {
         console.error("API error:", err.response?.data || err.message);
@@ -36,7 +32,7 @@ export const getBusDataById = async (id) => {
 
 export const updateBusData = async (id, busData) => {
     console.log("API Update Payload:", id,busData);
-    const res = await axios.patch(`http://localhost:5000/api/buses/${id}`, busData, {
+    const res = await axios.patch(`${API_BASE_URL}/api/buses/${id}`, busData, {
         headers: {
             Authorization: `Bearer ${localStorage.getItem("userAuth")}`,
         },
@@ -54,7 +50,7 @@ export const getStation = async(page = 1, limit = 10) => {
 
 export const getStationById = async (id) => {
     try {
-        const res = await axios.get(`http://localhost:5000/api/buses/${id}`, {
+        const res = await axios.get(`${API_BASE_URL}/api/buses/${id}`, {
             headers: {
                 Authorization: `Bearer ${localStorage.getItem("userAuth")}`,
             },
@@ -63,5 +59,14 @@ export const getStationById = async (id) => {
     } catch (err) {
         console.error("API error:", err.response?.data || err.message);
         throw err;
+    }
+}
+
+export const fetchTrip = async(id) => {
+    try{
+        const res = await axios.get(`${API_BASE_URL}/api/trip/${id}`);
+        return res.data;
+    } catch(error) {
+        console.log(error);
     }
 }
