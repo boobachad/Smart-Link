@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const mongooseLeanVirtuals = require('mongoose-lean-virtuals');
 
 const driverSchema = new mongoose.Schema({
+  _id: mongoose.Schema.Types.ObjectId,
   name: {
     type: String,
     required: true,

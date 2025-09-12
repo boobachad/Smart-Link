@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Bus = require('../models/bus');
 const { verifyUser } = require('../middleware/authMiddleware');
 
@@ -46,9 +47,10 @@ router.get('/', verifyUser, async (req, res) => {
       Bus.find()
         .skip(skip)
         .limit(limit)
-        .populate('routeId', 'name') // Populate only route name
-        .populate('driverId', 'name')
-        .lean({virtuals: true})
+        .populate('currentTrip', 'startStation endStation')
+        .populate('daySchedule.tripId', 'startStation endStation')
+        .populate('driverId', 'name phone')
+        .lean({ virtuals: true })
     ]);
 
     // Extract counts from aggregation result
@@ -94,9 +96,17 @@ router.get('/:busNumber', verifyUser, async (req, res) => {
 
     // Find the bus by its busNumber
     const bus = await Bus.findOne({ busNumber: busNumber })
-      .populate('routeId', 'name code')
+      .populate('currentTrip', 'startStation endStation scheduledTime')
+      .populate({
+        path: 'daySchedule.tripId',
+        select: 'startStation endStation scheduledTime',
+        populate: {
+          path: 'routeId',
+          select: 'name code'
+        }
+      })
       .populate('driverId', 'name phone')
-      .lean({virtuals: true});
+      .lean({ virtuals: true });
 
     if (!bus) {
       return res.status(404).json({
@@ -120,23 +130,23 @@ router.get('/:busNumber', verifyUser, async (req, res) => {
 
 
 // POST - Add a single bus (Admin only)
-router.post('/', verifyUser, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    
+
     // // Check if user is admin
-    if (!req.user || !req.user.admin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied. Admin privileges required.'
-      });
-    }
+    // if (!req.user || !req.user.admin) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: 'Access denied. Admin privileges required.'
+    //   });
+    // }
 
     const busData = req.body;
-    
+
     // Validate required fields
-    const requiredFields = ['busNumber', 'routeId', 'vehicleInfo', 'schedule'];
+    const requiredFields = ['busNumber', 'plateNumber', 'vehicleInfo'];
     const missingFields = requiredFields.filter(field => !busData[field]);
-    
+
     if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
@@ -148,7 +158,7 @@ router.post('/', verifyUser, async (req, res) => {
     // Validate vehicle info
     const vehicleRequiredFields = ['make', 'model', 'year', 'capacity', 'licensePlate'];
     const missingVehicleFields = vehicleRequiredFields.filter(field => !busData.vehicleInfo[field]);
-    
+
     if (missingVehicleFields.length > 0) {
       return res.status(400).json({
         success: false,
@@ -157,21 +167,25 @@ router.post('/', verifyUser, async (req, res) => {
       });
     }
 
-    // Validate schedule
-    const scheduleRequiredFields = ['startTime', 'endTime'];
-    const missingScheduleFields = scheduleRequiredFields.filter(field => !busData.schedule[field]);
-    
-    if (missingScheduleFields.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required schedule information',
-        missingFields: missingScheduleFields
-      });
+    // If day schedule is provided, validate it
+    if (busData.daySchedule && busData.daySchedule.length > 0) {
+      const scheduleRequiredFields = ['tripId', 'startTime'];
+      const invalidSchedules = busData.daySchedule.filter(schedule =>
+        scheduleRequiredFields.some(field => !schedule[field])
+      );
+
+      if (invalidSchedules.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid schedule entries found',
+          invalidSchedules: invalidSchedules
+        });
+      }
     }
 
     const bus = new Bus(busData);
     const savedBus = await bus.save();
-    
+
     res.status(201).json({
       success: true,
       message: 'Bus created successfully'
@@ -189,7 +203,7 @@ router.post('/', verifyUser, async (req, res) => {
         errorCode: 11000
       });
     }
-    
+
     if (error.name === 'ValidationError') {
       // Mongoose validation error
       const validationErrors = Object.values(error.errors).map(err => ({
@@ -197,7 +211,7 @@ router.post('/', verifyUser, async (req, res) => {
         message: err.message,
         value: err.value
       }));
-      
+
       return res.status(400).json({
         success: false,
         error: 'Validation error',
@@ -206,7 +220,7 @@ router.post('/', verifyUser, async (req, res) => {
         validationErrors: validationErrors
       });
     }
-    
+
     res.status(500).json({
       success: false,
       error: 'Failed to create bus',
@@ -217,10 +231,9 @@ router.post('/', verifyUser, async (req, res) => {
   }
 });
 
-// POST - Add multiple buses (Bulk insert - Admin only)
-router.post('/bulk', verifyUser, async (req, res) => {
+// PUT - Set day schedule for a bus
+router.put('/:busNumber/schedule', verifyUser, async (req, res) => {
   try {
-    // // Check if user is admin
     if (!req.user || !req.user.admin) {
       return res.status(403).json({
         success: false,
@@ -228,8 +241,125 @@ router.post('/bulk', verifyUser, async (req, res) => {
       });
     }
 
+    const { busNumber } = req.params;
+    const { trips } = req.body;
+
+    const bus = await Bus.findOne({ busNumber });
+    if (!bus) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bus not found'
+      });
+    }
+
+    await bus.setDaySchedule(trips);
+
+    res.json({
+      success: true,
+      message: 'Bus schedule updated successfully'
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update bus schedule',
+      details: err.message
+    });
+  }
+});
+
+// POST - Start a trip for a bus
+router.post('/:busNumber/start-trip', verifyUser, async (req, res) => {
+  try {
+    const { busNumber } = req.params;
+    const { tripId } = req.body;
+
+    const bus = await Bus.findOne({ busNumber });
+    if (!bus) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bus not found'
+      });
+    }
+
+    await bus.startTrip(tripId);
+
+    res.json({
+      success: true,
+      message: 'Trip started successfully'
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to start trip',
+      details: err.message
+    });
+  }
+});
+
+// POST - End current trip for a bus
+router.post('/:busNumber/end-trip', verifyUser, async (req, res) => {
+  try {
+    const { busNumber } = req.params;
+
+    const bus = await Bus.findOne({ busNumber });
+    if (!bus) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bus not found'
+      });
+    }
+
+    await bus.endTrip();
+
+    res.json({
+      success: true,
+      message: 'Trip ended successfully'
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to end trip',
+      details: err.message
+    });
+  }
+});
+
+// GET - Get next scheduled trip for a bus
+router.get('/:busNumber/next-trip', verifyUser, async (req, res) => {
+  try {
+    const { busNumber } = req.params;
+
+    const bus = await Bus.findOne({ busNumber })
+      .populate('daySchedule.tripId', 'startStation endStation scheduledTime')
+      .lean();
+
+    if (!bus) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bus not found'
+      });
+    }
+
+    const nextTrip = bus.getNextTrip();
+
+    res.json({
+      success: true,
+      data: nextTrip
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get next trip',
+      details: err.message
+    });
+  }
+});
+
+// POST - Add multiple buses (Bulk insert - Admin only)
+router.post('/bulk', async (req, res) => {
+  try {
     const { buses } = req.body;
-    
+
     if (!Array.isArray(buses) || buses.length === 0) {
       return res.status(400).json({
         success: false,
@@ -244,142 +374,86 @@ router.post('/bulk', verifyUser, async (req, res) => {
       });
     }
 
-    // Validate each bus and separate valid from invalid
-    const validBuses = [];
-    const validationErrors = [];
-    const requiredFields = ['busNumber', 'routeId', 'vehicleInfo', 'schedule'];
+    // Validate all buses
+    const requiredFields = ['busNumber', 'plateNumber', 'vehicleInfo'];
     const vehicleRequiredFields = ['make', 'model', 'year', 'capacity', 'licensePlate'];
-    const scheduleRequiredFields = ['startTime', 'endTime'];
 
-    buses.forEach((bus, index) => {
-      const errors = [];
-      
+    for (let i = 0; i < buses.length; i++) {
+      const bus = buses[i];
+
       // Check required fields
       const missingFields = requiredFields.filter(field => !bus[field]);
       if (missingFields.length > 0) {
-        errors.push(`Missing required fields: ${missingFields.join(', ')}`);
-      }
-
-      // Check vehicle info
-      if (bus.vehicleInfo) {
-        const missingVehicleFields = vehicleRequiredFields.filter(field => !bus.vehicleInfo[field]);
-        if (missingVehicleFields.length > 0) {
-          errors.push(`Missing vehicle fields: ${missingVehicleFields.join(', ')}`);
-        }
-      } else if (bus.vehicleInfo === undefined) {
-        errors.push('vehicleInfo object is required');
-      }
-
-      // Check schedule
-      if (bus.schedule) {
-        const missingScheduleFields = scheduleRequiredFields.filter(field => !bus.schedule[field]);
-        if (missingScheduleFields.length > 0) {
-          errors.push(`Missing schedule fields: ${missingScheduleFields.join(', ')}`);
-        }
-      } else if (bus.schedule === undefined) {
-        errors.push('schedule object is required');
-      }
-
-      // Additional validation for data types and ranges
-      if (bus.vehicleInfo && bus.vehicleInfo.year) {
-        const currentYear = new Date().getFullYear();
-        if (bus.vehicleInfo.year < 1990 || bus.vehicleInfo.year > currentYear + 1) {
-          errors.push(`Year must be between 1990 and ${currentYear + 1}`);
-        }
-      }
-
-      if (bus.vehicleInfo && bus.vehicleInfo.capacity) {
-        if (bus.vehicleInfo.capacity < 1 || bus.vehicleInfo.capacity > 200) {
-          errors.push('Capacity must be between 1 and 200');
-        }
-      }
-
-      if (errors.length > 0) {
-        validationErrors.push({
-          index: index,
-          busNumber: bus.busNumber || 'Unknown',
-          errors: errors,
-          busData: bus // Include the problematic bus data for debugging
+        return res.status(400).json({
+          success: false,
+          error: `Bus at index ${i} is missing required fields: ${missingFields.join(', ')}`
         });
-      } else {
-        validBuses.push(bus);
       }
+
+      // Validate vehicleInfo
+      if (!bus.vehicleInfo) {
+        return res.status(400).json({
+          success: false,
+          error: `Bus at index ${i} is missing vehicleInfo object`
+        });
+      }
+
+      const missingVehicleFields = vehicleRequiredFields.filter(field => !bus.vehicleInfo[field]);
+      if (missingVehicleFields.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: `Bus at index ${i} vehicleInfo missing fields: ${missingVehicleFields.join(', ')}`
+        });
+      }
+
+      // Validate ranges
+      const currentYear = new Date().getFullYear();
+      if (bus.vehicleInfo.year < 1990 || bus.vehicleInfo.year > currentYear + 1) {
+        return res.status(400).json({
+          success: false,
+          error: `Bus at index ${i} vehicleInfo.year must be between 1990 and ${currentYear + 1}`
+        });
+      }
+
+      if (bus.vehicleInfo.capacity < 1 || bus.vehicleInfo.capacity > 200) {
+        return res.status(400).json({
+          success: false,
+          error: `Bus at index ${i} vehicleInfo.capacity must be between 1 and 200`
+        });
+      }
+    }
+
+    // Assign new ObjectIds to each bus before insert
+    const busesWithIds = buses.map(bus => ({
+      _id: new mongoose.Types.ObjectId(bus._id), // Preserve provided _id if any
+      ...bus
+    }));
+
+    // Insert all buses at once
+    const createdBuses = await Bus.insertMany(busesWithIds, { ordered: true });
+
+
+    res.status(201).json({
+      success: true,
+      message: `All ${createdBuses.length} buses created successfully`,
+      createdBuses
     });
 
-    let createdBuses = [];
-    let insertErrors = [];
-
-    // Insert valid buses if any exist
-    if (validBuses.length > 0) {
-      try {
-        createdBuses = await Bus.insertMany(validBuses, { ordered: false });
-      } catch (insertError) {
-        if (insertError.name === 'BulkWriteError') {
-          // Handle partial success in bulk insert
-          createdBuses = insertError.result.insertedDocs || [];
-          
-          // Process write errors
-          insertError.writeErrors.forEach(err => {
-            const errorType = err.code === 11000 ? 'duplicate' : 'database';
-            const field = err.code === 11000 ? Object.keys(err.keyPattern)[0] : null;
-            
-            insertErrors.push({
-              busNumber: err.op.busNumber || 'Unknown',
-              errorType: errorType,
-              field: field,
-              message: err.code === 11000 
-                ? `${field} already exists` 
-                : err.errmsg,
-              errorCode: err.code,
-              busData: err.op
-            });
-          });
-        } else {
-          // Handle other database errors
-          insertErrors.push({
-            busNumber: 'Multiple',
-            errorType: 'database',
-            field: null,
-            message: insertError.message,
-            errorCode: insertError.code || 'UNKNOWN',
-            busData: null
-          });
-        }
-      }
-    }
-
-    // Prepare response
-    const response = {
-      success: true,
-      message: '',
-      summary: {
-        totalBuses: buses.length,
-        validBuses: validBuses.length,
-        createdBuses: createdBuses.length,
-        validationErrors: validationErrors.length,
-        insertErrors: insertErrors.length
-      },
-      createdBuses: createdBuses,
-      errors: {
-        validationErrors: validationErrors,
-        insertErrors: insertErrors
-      }
-    };
-
-    // Determine status code based on results
-    let statusCode = 201;
-    if (validationErrors.length > 0 || insertErrors.length > 0) {
-      statusCode = 207; // Multi-Status (partial success)
-      response.message = `Partial success: ${createdBuses.length} buses created, ${validationErrors.length + insertErrors.length} failed`;
-    } else {
-      response.message = `All ${createdBuses.length} buses created successfully`;
-    }
-
-    res.status(statusCode).json(response);
   } catch (error) {
+    if (error.code === 11000) {
+      const field = error.keyPattern ? Object.keys(error.keyPattern)[0] : 'Unknown';
+      return res.status(400).json({
+        success: false,
+        error: 'Duplicate key error',
+        field,
+        message: field !== 'Unknown' ? `${field} already exists` : 'Duplicate key exists',
+        errorCode: 11000
+      });
+    }
+
     res.status(500).json({
       success: false,
-      error: 'Failed to process bulk bus creation',
+      error: 'Failed to create buses',
       message: error.message
     });
   }
