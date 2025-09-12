@@ -22,7 +22,7 @@ function calculateDistance(point1, point2) {
 }
 
 // Function to check if point is near a station/stop
-function isNearPoint(currentLocation, pointCoordinates, threshold = 5) {
+function isNearPoint(currentLocation, pointCoordinates, threshold = 100) {
     return calculateDistance(
         { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
         { latitude: pointCoordinates[1], longitude: pointCoordinates[0] }
