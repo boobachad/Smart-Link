@@ -26,10 +26,6 @@ const validateDriver = [
     .trim()
     .isLength({ max: 200 })
     .withMessage('Address must not exceed 200 characters'),
-  body('dateOfBirth')
-    .optional()
-    .isISO8601()
-    .withMessage('Please provide a valid date of birth'),
   body('emergencyContact.name')
     .optional()
     .trim()
