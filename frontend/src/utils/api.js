@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://10.140.195.182:5000";
+const API_BASE_URL = "http://10.21.139.182:5000";
 export const getBuses = async (page = 1, pageSize = 10) => {
     const res = await axios.get(`${API_BASE_URL}/api/buses`, {
         params: { page, pageSize },
@@ -65,6 +65,15 @@ export const getStationById = async (id) => {
 export const fetchTrip = async(id) => {
     try{
         const res = await axios.get(`${API_BASE_URL}/api/trip/${id}`);
+        return res.data;
+    } catch(error) {
+        console.log(error);
+    }
+}
+
+export const fetchRouteById = async(id= R003) => {
+    try{
+        const res = await axios.get(`${API_BASE_URL}/api/routes/${id}`);
         return res.data;
     } catch(error) {
         console.log(error);
