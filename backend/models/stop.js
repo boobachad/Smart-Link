@@ -24,17 +24,15 @@ const stopSchema = new mongoose.Schema({
   
   // Location information
   location: {
-    latitude: {
-      type: Number,
-      required: true,
-      min: -90,
-      max: 90
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
     },
-    longitude: {
-      type: Number,
+    coordinates: {
+      type: [Number], // [longitude, latitude]
       required: true,
-      min: -180,
-      max: 180
+      index: '2dsphere'
     },
     address: {
       street: {
