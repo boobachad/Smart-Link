@@ -112,14 +112,12 @@ const stopSchema = new mongoose.Schema({
   nearbyStops: [{
     stopId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Stop'
+      required: true,
+      refPath: "stops.pointType"
     },
-    distance: {
-      type: Number, // in meters
-      required: true
-    },
-    walkingTime: {
-      type: Number, // in minutes
+    pointType: {
+      type: String,
+      enum: ['Station', 'Stop'],
       required: true
     }
   }],

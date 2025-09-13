@@ -85,6 +85,11 @@ const busSchema = new mongoose.Schema({
     default: 'inactive'
   },
 
+  eta: {
+    type: Object,
+    default: null
+  },
+
   // Real-time location data
   location: {
     latitude: {

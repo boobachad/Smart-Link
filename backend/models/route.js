@@ -366,34 +366,20 @@ routeSchema.statics.updateRouteConnectivity = async function (routeId) {
       const currentPoint = allPoints[i];
       const nextPoint = allPoints[i + 1];
 
-      // Calculate distance and walking time between points
-      const currentLocation = await this.getPointLocation(currentPoint.id, currentPoint.type);
-      const nextLocation = await this.getPointLocation(nextPoint.id, nextPoint.type);
+      await this.updatePointConnectivity(
+        currentPoint.id,
+        currentPoint.type,
+        nextPoint.id,
+        nextPoint.type
+      );
 
-      if (currentLocation && nextLocation) {
-        const distance = this.calculateDistance(currentLocation, nextLocation);
-        const walkingTime = this.calculateWalkingTime(distance);
-
-        // Update connectivity for current point
-        await this.updatePointConnectivity(
-          currentPoint.id,
-          currentPoint.type,
-          nextPoint.id,
-          nextPoint.type,
-          distance,
-          walkingTime
-        );
-
-        // Update connectivity for next point (bidirectional)
-        await this.updatePointConnectivity(
-          nextPoint.id,
-          nextPoint.type,
-          currentPoint.id,
-          currentPoint.type,
-          distance,
-          walkingTime
-        );
-      }
+      // Update connectivity for next point (bidirectional)
+      await this.updatePointConnectivity(
+        nextPoint.id,
+        nextPoint.type,
+        currentPoint.id,
+        currentPoint.type
+      );
     }
 
     route.connectivityUpdated = true;
@@ -404,46 +390,8 @@ routeSchema.statics.updateRouteConnectivity = async function (routeId) {
   }
 };
 
-// Helper method to get location of a point (station or stop)
-routeSchema.statics.getPointLocation = async function (pointId, pointType) {
-  try {
-    if (pointType === 'Station') {
-      const station = await Station.findById(pointId);
-      return station ? station.location : null;
-    } else {
-      const stop = await Stop.findById(pointId);
-      return stop ? stop.location : null;
-    }
-    return null;
-  } catch (error) {
-    return null;
-  }
-};
-
-// Helper method to calculate distance between two points
-routeSchema.statics.calculateDistance = function (point1, point2) {
-  const R = 6371e3; // Earth's radius in meters
-  const φ1 = point1.latitude * Math.PI / 180;
-  const φ2 = point2.latitude * Math.PI / 180;
-  const Δφ = (point2.latitude - point1.latitude) * Math.PI / 180;
-  const Δλ = (point2.longitude - point1.longitude) * Math.PI / 180;
-
-  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) *
-    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c; // Distance in meters
-};
-
-// Helper method to calculate walking time based on distance
-routeSchema.statics.calculateWalkingTime = function (distance) {
-  const averageWalkingSpeed = 1.4; // m/s (5 km/h)
-  return Math.ceil(distance / (averageWalkingSpeed * 60)); // Convert to minutes
-};
-
 // Helper method to update connectivity between two points
-routeSchema.statics.updatePointConnectivity = async function (pointId, pointType, connectedPointId, connectedPointType, distance, walkingTime) {
+routeSchema.statics.updatePointConnectivity = async function (pointId, pointType, connectedPointId, connectedPointType) {
   try {
     if (pointType === 'Station') {
       const station = await Station.findById(pointId);
@@ -458,8 +406,7 @@ routeSchema.statics.updatePointConnectivity = async function (pointId, pointType
           if (!existingConnection) {
             station.nearbyStops.push({
               stopId: connectedPointId,
-              distance: distance,
-              walkingTime: walkingTime
+              pointType: connectedPointType
             });
           }
         } else {
@@ -472,8 +419,7 @@ routeSchema.statics.updatePointConnectivity = async function (pointId, pointType
           if (!existingConnection) {
             station.nearbyStops.push({
               stopId: connectedPointId,
-              distance: distance,
-              walkingTime: walkingTime
+              pointType: connectedPointType
             });
           }
         }
@@ -493,8 +439,7 @@ routeSchema.statics.updatePointConnectivity = async function (pointId, pointType
           if (!existingConnection) {
             stop.nearbyStops.push({
               stopId: connectedPointId,
-              distance: distance,
-              walkingTime: walkingTime
+              pointType: connectedPointType
             });
           }
         } else {
@@ -507,8 +452,7 @@ routeSchema.statics.updatePointConnectivity = async function (pointId, pointType
           if (!existingConnection) {
             stop.nearbyStops.push({
               stopId: connectedPointId,
-              distance: distance,
-              walkingTime: walkingTime
+              pointType: connectedPointType
             });
           }
         }

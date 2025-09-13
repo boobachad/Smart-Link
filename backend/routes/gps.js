@@ -7,7 +7,7 @@ const Bus = require('../models/bus');
 const Trip = require('../models/trip');
 
 // Configuration for the external server
-const EXTERNAL_SERVER_URL = process.env.EXTERNAL_SERVER_URL || 'http://10.140.195.67:5000/predict_eta';
+const EXTERNAL_SERVER_URL = process.env.EXTERNAL_SERVER_URL || 'http://10.21.139.67:5500/eta';
 
 // Function to calculate distance between two points
 function calculateDistance(point1, point2) {
@@ -150,32 +150,47 @@ router.post('/', async (req, res) => {
 
         if (!tripHistory.completed) {
             // Send location data to external server
-            // try {
-            //     const response = await fetch(EXTERNAL_SERVER_URL, {
-            //         method: 'POST',
-            //         headers: {
-            //             'Content-Type': 'application/json',
-            //         },
-            //         body: JSON.stringify({
-            //             start_lat: gpsData.latitude,
-            //             start_lon: gpsData.longitude,
-            //             end_lat: tripHistory.stops[tripHistory.nextStopIndex].coordinates[1],
-            //             end_lon: tripHistory.stops[tripHistory.nextStopIndex].coordinates[0],
-            //             scheduled_time_minutes: (tripHistory.endStation.expectedTime - tripHistory.startStation.expectedTime) / (1000 * 60),
-            //             num_stops: tripHistory.stops.length + 2,
-            //         })
-            //     });
+            try {
+                const response = await fetch(EXTERNAL_SERVER_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        current_lat: gpsData.latitude,
+                        current_lon: gpsData.longitude,
+                        destination_lat: tripHistory.stops[tripHistory.nextStopIndex].coordinates[1],
+                        destination_lon: tripHistory.stops[tripHistory.nextStopIndex].coordinates[0],
+                        next_time: new Date(tripHistory.stops[tripHistory.nextStopIndex].expectedTime.getTime() + (330 * 60000)).toLocaleTimeString('en-IN', { 
+                            hour12: false, 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            timeZone: 'Asia/Kolkata'
+                        }),
+                        gps_time: new Date(currentTime.getTime() + (330 * 60000)).toLocaleTimeString('en-IN', { 
+                            hour12: false, 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            timeZone: 'Asia/Kolkata'
+                        })
+                    })
+                });
 
-            //     if (!response.ok) {
-            //         console.error('Failed to send data to external server:', await response.text());
-            //     } else {
-            //         const eta = await response.json();
-            //         console.log('Successfully sent location data to external server', eta);
-            //     }
-            // } catch (error) {
-            //     console.error('Error sending data to external server:', error);
-            //     // Continue processing even if external server request fails
-            // }
+                if (!response.ok) {
+                    console.error('Failed to send data to external server:', await response.text());
+                } else {
+                    const eta = await response.json();
+                    console.log('Successfully sent location data to external server', eta);
+                    // Update bus ETA
+                    await Bus.updateOne(
+                        { _id: bus._id },
+                        { $set: { eta: eta } }
+                    );
+                }
+            } catch (error) {
+                console.error('Error sending data to external server:', error);
+                // Continue processing even if external server request fails
+            }
             const updates = {};
 
             if (!tripHistory.isStarted) {

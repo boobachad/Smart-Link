@@ -119,11 +119,11 @@ router.get('/:code', async (req, res) => {
     const route = await Route.findOne({ code: req.params.code })
       .populate('startStation', 'location name')
       .populate('endStation', 'location name')
-      .populate({
-        path: 'stops.pointId',
-        select: 'location name',
-        model: doc => mongoose.model(doc.pointType)
-      })
+      // .populate({
+      //   path: 'stops.pointId',
+      //   select: 'location name',
+      //   model: doc => mongoose.model(doc.pointType)
+      // })
       .populate({
         path: 'trips',
         populate: {
