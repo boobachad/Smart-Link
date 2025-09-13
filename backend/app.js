@@ -50,7 +50,7 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-app.use('/', indexRouter);
+app.use('/api', indexRouter);
 app.use('/users', usersRouter);
 app.use('/admin', adminRouter);
 app.use('/api/buses', busRouter);
@@ -106,17 +106,6 @@ app.get('/api/trip/:id', async (req, res) => {
     });
   }
 });
-
-// async function trpc() {
-//   const Trip = require('./models/trip')
-//   await Trip.createTrip("68c2ed568c91b9b2ce471a47", "05:00");
-//   console.log("Trip created");
-// }
-
-// app.post('/repair', async (req, res) => {
-//   await trpc();
-//   res.status(200).json({success: true})
-// })
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
